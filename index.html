@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      color: #333;
+      margin: 0;
+      padding: 30px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+      font-size: 2.2rem;
+      margin: 20px 0 10px 0;
+    }
+
+    .lead-count {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 1rem;
+      color: #555;
+    }
+
+    .form-container {
+      background: #fff;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      max-width: 900px;
+      margin: auto;
+    }
+
+    input, button, select {
+      padding: 12px;
+      margin: 10px 0;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 4px rgba(0,123,255,0.2);
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .search-input {
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+      background-color: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+
+    th {
+      background-color: #eaeaea;
+      color: #333;
+    }
+
+    td {
+      color: #444;
+    }
+
+    .actions button {
+      width: auto;
+      padding: 8px 12px;
+      margin-right: 6px;
+      border-radius: 6px;
+      color: white;
+    }
+
+    .delete-btn { background-color: #dc3545; }
+    .edit-btn { background-color: #198754; }
+    .whatsapp-btn { background-color: #25D366; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+      margin-right: 4px;
+    }
+
+    .badge.important { background-color: #dc3545; }
+    .badge.fallout { background-color: #fd7e14; }
+    .badge.converted { background-color: #28a745; }
+    .badge.followup { background-color: #0d6efd; }
+
+    #loginContainer {
+      max-width: 400px;
+      margin: auto;
+      padding: 40px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .dropdown {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+    }
+
+    .dropdown button {
+      background-color: #555;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background-color: #fff;
+      min-width: 100px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.1);
+      z-index: 1;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .dropdown-content a {
+      color: #333;
+      padding: 10px;
+      text-decoration: none;
+      display: block;
+      font-size: 14px;
+    }
+
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loginContainer" style="display:none;">
+  <h2>Login</h2>
+  <input type="text" id="loginUsername" placeholder="Username" />
+  <input type="password" id="loginPassword" placeholder="Password" />
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="mainApp" style="display:none;">
+  <div class="dropdown">
+    <button>☰</button>
+    <div class="dropdown-content">
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <h2>Smartpanel</h2>
+  <p style="text-align:center; margin-top:-10px; font-size: 0.9rem; color: #777;">(Yash Agarwal)</p>
+
+  <div class="lead-count">Total Leads: <span id="leadCount">0</span></div>
+
+  <div class="form-container">
+    <input type="text" id="name" placeholder="Name">
+    <input type="text" id="phone" placeholder="Phone Number">
+    <input type="text" id="remark" placeholder="Remark">
+    <input type="date" id="followUpDate">
+    <select id="tag">
+      <option value="">Select Tag</option>
+      <option value="Important">Important</option>
+      <option value="Fallout">Fallout</option>
+      <option value="Converted">Converted</option>
+      <option value="Followup">Followup</option>
+    </select>
+    <button onclick="addLead()">Add Lead</button>
+    <button onclick="downloadCSV()">Download Excel</button>
+    <input class="search-input" type="text" id="search" placeholder="Search by Name or Remark" onkeyup="renderTable()">
+  </div>
+
+  <table id="leadTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Remark</th>
+        <th>Follow-up</th>
+        <th>Time Added</th>
+        <th>Tags</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  const users = {
+    Admin: "admin@123@",
+    User: "pass123"
+  };
+
+  let leads = [];
+  let editIndex = null;
+  let whatsappWindow = null;
+
+  window.onload = () => {
+    const isLoggedIn = sessionStorage.getItem("isLoggedIn");
+    if (isLoggedIn) {
+      document.getElementById("loginContainer").style.display = "none";
+      document.getElementById("mainApp").style.display = "block";
+      loadLeads();
+    } else {
+      document.getElementById("loginContainer").style.display = "block";
+    }
+  };
+
+  function login() {
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value.trim();
+
+    if (users[username] && users[username] === password) {
+      sessionStorage.setItem("isLoggedIn", true);
+      location.reload();
+    } else {
+      alert("Invalid username or password");
+    }
+  }
+
+  function logout() {
+    sessionStorage.removeItem("isLoggedIn");
+    location.reload();
+  }
+
+  function loadLeads() {
+    const savedLeads = localStorage.getItem("leadsData");
+    if (savedLeads) {
+      leads = JSON.parse(savedLeads);
+    }
+    renderTable();
+  }
+
+  function getCurrentTime() {
+    const now = new Date();
+    return now.toLocaleString();
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    const [yyyy, mm, dd] = dateStr.split("-");
+    return `${dd}//${mm}//${yyyy}`;
+  }
+
+  function saveToLocalStorage() {
+    localStorage.setItem("leadsData", JSON.stringify(leads));
+  }
+
+  function addLead() {
+    const name = document.getElementById("name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const remark = document.getElementById("remark").value.trim();
+    const followUpDate = document.getElementById("followUpDate").value;
+    const tag = document.getElementById("tag").value;
+
+    if (!name || !phone) {
+      alert("Name and Phone are required!");
+      return;
+    }
+
+    const time = getCurrentTime();
+    const lead = { name, phone, remark, followUpDate, time, tags: tag ? [tag] : [] };
+
+    if (editIndex !== null) {
+      leads[editIndex] = lead;
+      editIndex = null;
+    } else {
+      leads.push(lead);
+    }
+
+    saveToLocalStorage();
+    renderTable();
+
+    document.getElementById("name").value = "";
+    document.getElementById("phone").value = "";
+    document.getElementById("remark").value = "";
+    document.getElementById("followUpDate").value = "";
+    document.getElementById("tag").value = "";
+  }
+
+  function renderTable() {
+    const tbody = document.querySelector("#leadTable tbody");
+    const search = document.getElementById("search").value.toLowerCase();
+    tbody.innerHTML = "";
+
+    leads.forEach((lead, index) => {
+      if (
+        lead.name.toLowerCase().includes(search) ||
+        lead.remark.toLowerCase().includes(search)
+      ) {
+        const row = tbody.insertRow();
+        row.insertCell(0).innerText = lead.name;
+        row.insertCell(1).innerText = lead.phone;
+        row.insertCell(2).innerText = lead.remark;
+        row.insertCell(3).innerText = formatDate(lead.followUpDate);
+        row.insertCell(4).innerText = lead.time;
+
+        const tagCell = row.insertCell(5);
+        if (lead.tags && lead.tags.length > 0) {
+          lead.tags.forEach(tag => {
+            const span = document.createElement("span");
+            span.classList.add("badge");
+            if (tag.toLowerCase() === "important") span.classList.add("important");
+            if (tag.toLowerCase() === "fallout") span.classList.add("fallout");
+            if (tag.toLowerCase() === "converted") span.classList.add("converted");
+            if (tag.toLowerCase() === "followup") span.classList.add("followup");
+            span.textContent = tag;
+            tagCell.appendChild(span);
+          });
+        } else {
+          tagCell.textContent = "-";
+        }
+
+        const actions = row.insertCell(6);
+        actions.className = 'actions';
+        actions.innerHTML = `
+          <button class="delete-btn" onclick="deleteLead(${index})">Delete</button>
+          <button class="edit-btn" onclick="editLead(${index})">Edit</button>
+          <button class="whatsapp-btn" onclick="sendWhatsAppWebMessage('${lead.name}', '${lead.phone}')">WhatsApp</button>
+        `;
+      }
+    });
+
+    document.getElementById("leadCount").textContent = leads.length;
+  }
+
+  function deleteLead(index) {
+    if (confirm("Are you sure you want to delete this lead?")) {
+      leads.splice(index, 1);
+      saveToLocalStorage();
+      renderTable();
+    }
+  }
+
+  function editLead(index) {
+    const lead = leads[index];
+    document.getElementById("name").value = lead.name;
+    document.getElementById("phone").value = lead.phone;
+    document.getElementById("remark").value = lead.remark;
+    document.getElementById("followUpDate").value = lead.followUpDate || "";
+    document.getElementById("tag").value = lead.tags && lead.tags.length > 0 ? lead.tags[0] : "";
+    editIndex = index;
+  }
+
+  function downloadCSV() {
+    if (leads.length === 0) {
+      alert("No leads to download!");
+      return;
+    }
+
+    let csv = "Name,Phone,Remark,Follow-up Date,Time Added,Tags\n";
+    leads.forEach(lead => {
+      csv += `"${lead.name}","${lead.phone}","${lead.remark}","${formatDate(lead.followUpDate)}","${lead.time}","${lead.tags.join(', ')}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "leads.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function sendWhatsAppWebMessage(name, phone) {
+    const message = `Hi ${name}, this is Yash Agarwal from MyOutspark.com (Times of India).
+
+🚀 Want to turn your LinkedIn into a recruiter-magnet?
+
+✅ SEO optimization
+✅ Profile makeover with Handwritten content (not AI)
+✅ Visual branding (3 headshots + 3 banners)
+✅ Keyword strategy
+✅ Engagement roadmap
+✅ Bonus: 60-Day Post Buddy access (posting calendar + algorithm traning )
+
+Learn more: https://myoutspark.com/linkedin-profile-makeover
+Register: https://myoutspark.com/linkedin-profile-makeover/v3?utm_source=Sales`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
+
+    if (whatsappWindow == null || whatsappWindow.closed) {
+      whatsappWindow = window.open(url, "WhatsAppWindow");
+    } else {
+      whatsappWindow.location.href = url;
+      whatsappWindow.focus();
+    }
+  }
+</script>
+</body>
+</html>
+
