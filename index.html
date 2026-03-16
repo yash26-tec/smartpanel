@@ -28,51 +28,62 @@ height:100vh;
 width:100%;
 }
 
-
 /* Desktop */
 
 .toolbar{
 
 position:absolute;
-top:20px;
-left:20px;
+top:15px;
+left:15px;
 
 z-index:9999;
 
 background:#020617;
 
-padding:15px;
+padding:12px;
 
-border-radius:12px;
+border-radius:10px;
 
 color:white;
 
-width:230px;
+width:210px;
 
 border:1px solid rgba(255,255,255,0.15);
 
 }
 
-
-/* Mobile */
+/* Mobile fix */
 
 @media(max-width:700px){
 
 .toolbar{
 
-bottom:0;
-top:auto;
-left:0;
+top:10px;
+left:10px;
 
-width:100%;
+width:170px;
 
-border-radius:20px 20px 0 0;
+padding:10px;
 
-padding:18px;
+border-radius:10px;
 
-background:#020617ee;
+background:#020617dd;
 
-backdrop-filter:blur(10px);
+}
+
+.uploadBtn{
+
+padding:10px;
+
+font-size:13px;
+
+}
+
+button{
+
+padding:9px;
+
+font-size:13px;
 
 }
 
@@ -83,7 +94,7 @@ backdrop-filter:blur(10px);
 
 background:#2563eb;
 
-padding:14px;
+padding:12px;
 
 border-radius:8px;
 
@@ -91,25 +102,23 @@ text-align:center;
 
 cursor:pointer;
 
-margin-top:10px;
+margin-top:8px;
 
-font-size:15px;
+font-size:14px;
 
 }
-
 
 .preview{
 
 width:100%;
 
-margin-top:10px;
+margin-top:8px;
 
-border-radius:8px;
+border-radius:6px;
 
 display:none;
 
 }
-
 
 button{
 
@@ -121,25 +130,23 @@ color:white;
 
 border:none;
 
-padding:12px;
-
-margin-top:10px;
-
-border-radius:8px;
-
-cursor:pointer;
-
-font-size:15px;
-
-}
-
-
-input[type=range]{
+padding:10px;
 
 margin-top:8px;
 
+border-radius:6px;
+
+cursor:pointer;
+
+font-size:14px;
+
 }
 
+input[type=range]{
+
+margin-top:6px;
+
+}
 
 </style>
 
@@ -149,14 +156,14 @@ margin-top:8px;
 
 <div class="toolbar">
 
-<b>Overlay Image</b>
+<b style="font-size:14px">Overlay</b>
 
 <div
 class="uploadBtn"
 onclick="document.getElementById('fileInput').click()"
 >
 
-Upload Image
+Upload
 
 </div>
 
@@ -170,8 +177,6 @@ style="display:none"
 id="preview"
 class="preview"
 >
-
-Opacity
 
 <input
 type="range"
@@ -188,7 +193,7 @@ Reset
 </button>
 
 <button onclick="takeShot()">
-Export PNG
+PNG
 </button>
 
 </div>
@@ -202,7 +207,6 @@ zoomControl:false,
 attributionControl:false
 }).setView([20,0],3);
 
-
 L.tileLayer(
 
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -213,20 +217,14 @@ maxZoom:18
 
 }).addTo(map);
 
-
 var geoLayer;
 var uploadedImage="";
 var patterns={};
 
-
 document
-
 .getElementById("fileInput")
-
 .addEventListener(
-
 "change",
-
 function(e){
 
 var reader=new FileReader();
@@ -250,7 +248,6 @@ e.target.files[0]
 
 });
 
-
 fetch(
 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
 )
@@ -260,33 +257,25 @@ fetch(
 .then(data=>{
 
 geoLayer=L.geoJson(
-
 data,
-
 {
 
 style:{
-
 color:"#415a77",
 weight:0.7,
 opacity:0.6,
 fillOpacity:0
-
 },
 
 onEachFeature:function(feature,layer){
 
 layer.on(
-
 'click',
-
 function(){
 
 layer.setStyle({
-
 color:"#ffd60a",
 weight:2
-
 });
 
 if(uploadedImage!=""){
@@ -294,11 +283,9 @@ if(uploadedImage!=""){
 var id=
 feature.properties.ISO_A3;
 
-
 var svg=
 map.getPanes().overlayPane
 .querySelector("svg");
-
 
 if(!patterns[id]){
 
@@ -334,7 +321,6 @@ pattern.setAttribute(
 "1"
 );
 
-
 var image=
 document.createElementNS(
 "http://www.w3.org/2000/svg",
@@ -361,7 +347,6 @@ image.setAttribute(
 "xMidYMid slice"
 );
 
-
 pattern.appendChild(image);
 
 defs.appendChild(pattern);
@@ -372,14 +357,12 @@ patterns[id]=pattern;
 
 }
 
-
 layer.setStyle({
 
 fillOpacity:
 document.getElementById("fadeSlider").value
 
 });
-
 
 var path=
 layer._path;
@@ -399,7 +382,6 @@ path.setAttribute(
 
 });
 
-
 function resetMap(){
 
 geoLayer.eachLayer(layer=>{
@@ -407,9 +389,7 @@ geoLayer.eachLayer(layer=>{
 layer.setStyle({
 
 color:"#415a77",
-
 weight:0.7,
-
 fillOpacity:0
 
 });
@@ -418,22 +398,14 @@ fillOpacity:0
 
 }
 
-
-
 function takeShot(){
 
 html2canvas(
-
 document.querySelector("#map"),
-
 {
-
 useCORS:true,
-
 scale:2
-
 }
-
 )
 
 .then(canvas=>{
