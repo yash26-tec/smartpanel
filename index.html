@@ -27,7 +27,29 @@ font-family:Arial;
 height:100vh;
 }
 
-/* floating settings button */
+/* fade mask */
+
+.fade{
+
+position:absolute;
+
+width:100%;
+
+height:100%;
+
+background:black;
+
+opacity:0;
+
+pointer-events:none;
+
+z-index:800;
+
+transition:.6s;
+
+}
+
+/* settings button */
 
 .fab{
 
@@ -59,11 +81,9 @@ cursor:pointer;
 
 z-index:9999;
 
-box-shadow:0 0 15px rgba(37,99,235,0.6);
-
 }
 
-/* hidden toolbar */
+/* toolbar */
 
 .toolbar{
 
@@ -74,8 +94,6 @@ top:70px;
 right:15px;
 
 background:#020617ee;
-
-backdrop-filter:blur(10px);
 
 padding:12px;
 
@@ -93,32 +111,21 @@ font-size:12px;
 
 z-index:9999;
 
-border:1px solid rgba(255,255,255,0.15);
-
 }
-
-.toolbar input{
-
-width:140px;
-
-}
-
-/* cinematic glow */
 
 .glow{
 
-filter: drop-shadow(0px 0px 12px gold)
-drop-shadow(0px 0px 25px orange);
+filter:
+drop-shadow(0 0 10px gold)
+drop-shadow(0 0 20px orange);
 
 }
 
-/* border draw animation */
-
 .leaflet-interactive{
 
-stroke-dasharray:1200;
+stroke-dasharray:1400;
 
-stroke-dashoffset:1200;
+stroke-dashoffset:1400;
 
 animation:draw 1.2s forwards;
 
@@ -134,19 +141,15 @@ stroke-dashoffset:0;
 
 }
 
-/* labels */
-
 .label{
 
 color:white;
 
-font-size:12px;
-
 font-weight:bold;
 
-text-shadow:
-0 0 6px black,
-0 0 10px black;
+font-size:12px;
+
+text-shadow:0 0 8px black;
 
 }
 
@@ -155,6 +158,8 @@ text-shadow:
 </head>
 
 <body>
+
+<div class="fade" id="fade"></div>
 
 <div
 class="fab"
@@ -172,7 +177,7 @@ Upload Flag
 
 <input type="file" id="fileInput">
 
-Fill Opacity
+Opacity
 
 <input
 type="range"
@@ -183,7 +188,7 @@ value="0.6"
 id="fadeSlider"
 >
 
-Border Size
+Border
 
 <input
 type="range"
@@ -193,7 +198,7 @@ value="2"
 id="borderSize"
 >
 
-Border Color
+Color
 
 <input
 type="color"
@@ -209,7 +214,7 @@ id="glowToggle"
 checked
 >
 
-<button onclick="cinematicMode()">
+<button onclick="recordMode()">
 Recording Mode
 </button>
 
@@ -218,7 +223,7 @@ Reset
 </button>
 
 <button onclick="takeShot()">
-Export PNG
+Export
 </button>
 
 </div>
@@ -228,7 +233,9 @@ Export PNG
 <script>
 
 var map=L.map(
+
 'map',
+
 {
 
 zoomControl:false,
@@ -241,11 +248,15 @@ zoomAnimation:true,
 
 fadeAnimation:false,
 
-markerZoomAnimation:false
+markerZoomAnimation:false,
+
+zoomSnap:.25
 
 }
 
 ).setView([20,0],3);
+
+/* optimized tiles */
 
 L.tileLayer(
 
@@ -255,11 +266,13 @@ L.tileLayer(
 
 maxZoom:18,
 
-updateWhenZooming:false,
+keepBuffer:30,
 
 updateWhenIdle:true,
 
-keepBuffer:10
+updateWhenZooming:false,
+
+updateInterval:100
 
 }
 
@@ -269,9 +282,9 @@ var uploadedImage="";
 
 var selected=[];
 
-var patterns={};
-
 var labels=[];
+
+var patterns={};
 
 function toggleTools(){
 
@@ -287,21 +300,41 @@ t.style.display=="flex"
 
 fileInput.onchange=function(e){
 
-var reader=
+var r=
 new FileReader();
 
-reader.onload=function(){
+r.onload=function(){
 
-uploadedImage=
-reader.result;
+uploadedImage=r.result;
 
 };
 
-reader.readAsDataURL(
+r.readAsDataURL(
 e.target.files[0]
 );
 
 };
+
+/* preload tiles */
+
+map.on('movestart',()=>{
+
+map.eachLayer(l=>{
+
+if(l._tiles){
+
+Object.values(l._tiles)
+.forEach(t=>{
+
+t.el.loading="eager";
+
+});
+
+}
+
+});
+
+});
 
 fetch(
 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
@@ -312,14 +345,16 @@ fetch(
 .then(data=>{
 
 L.geoJson(
+
 data,
+
 {
 
 style:{
 
 color:"#415a77",
 
-weight:0.7,
+weight:.7,
 
 fillOpacity:0
 
@@ -332,16 +367,15 @@ layer.on(
 'click',
 function(){
 
-if(!selected.includes(layer))
 selected.push(layer);
+
+cinematicZoom(layer);
 
 highlight(layer);
 
-camera(layer);
+addLabel(feature,layer);
 
-label(feature,layer);
-
-flag(feature,layer);
+addFlag(feature,layer);
 
 });
 
@@ -353,24 +387,58 @@ flag(feature,layer);
 
 });
 
-function highlight(layer){
+function cinematicZoom(layer){
 
-var zoom=
-map.getZoom();
+var fade=
+document.getElementById("fade");
+
+fade.style.opacity=.35;
+
+/* preload delay */
+
+setTimeout(()=>{
+
+map.flyToBounds(
+
+layer.getBounds(),
+
+{
+
+padding:[120,120],
+
+duration:2.7,
+
+easeLinearity:.12
+
+}
+
+);
+
+},200);
+
+/* remove fade */
+
+setTimeout(()=>{
+
+fade.style.opacity=0;
+
+},900);
+
+}
+
+function highlight(layer){
 
 var w=
 borderSize.value*
-(zoom/3);
+(map.getZoom()/3);
 
 layer.setStyle({
 
-color:
-borderColor.value,
+color:borderColor.value,
 
 weight:w,
 
-fillOpacity:
-fadeSlider.value
+fillOpacity:fadeSlider.value
 
 });
 
@@ -380,27 +448,7 @@ layer._path.classList.add("glow");
 
 }
 
-function camera(layer){
-
-map.flyToBounds(
-
-layer.getBounds(),
-
-{
-
-padding:[100,100],
-
-duration:2,
-
-easeLinearity:0.2
-
-}
-
-);
-
-}
-
-function label(feature,layer){
+function addLabel(feature,layer){
 
 var c=
 layer.getBounds()
@@ -408,16 +456,16 @@ layer.getBounds()
 
 var m=
 L.marker(
+
 c,
+
 {
 
-icon:
-L.divIcon({
+icon:L.divIcon({
 
 className:"label",
 
-html:
-feature.properties.ADMIN
+html:feature.properties.ADMIN
 
 })
 
@@ -429,7 +477,7 @@ labels.push(m);
 
 }
 
-function flag(feature,layer){
+function addFlag(feature,layer){
 
 if(uploadedImage=="")
 return;
@@ -446,14 +494,20 @@ if(!patterns[id]){
 
 var defs=
 document.createElementNS(
+
 "http://www.w3.org/2000/svg",
+
 "defs"
+
 );
 
 var pattern=
 document.createElementNS(
+
 "http://www.w3.org/2000/svg",
+
 "pattern"
+
 );
 
 pattern.setAttribute(
@@ -471,8 +525,11 @@ pattern.setAttribute(
 
 var img=
 document.createElementNS(
+
 "http://www.w3.org/2000/svg",
+
 "image"
+
 );
 
 img.setAttribute(
@@ -508,11 +565,9 @@ layer._path.setAttribute(
 
 }
 
-function cinematicMode(){
+function recordMode(){
 
-document
-.getElementById("tools")
-.style.display="none";
+tools.style.display="none";
 
 document
 .querySelector(".fab")
@@ -528,7 +583,7 @@ labels.forEach(l=>map.removeLayer(l));
 
 labels=[];
 
-map.eachLayer(function(layer){
+map.eachLayer(layer=>{
 
 if(layer.setStyle)
 
@@ -536,7 +591,7 @@ layer.setStyle({
 
 color:"#415a77",
 
-weight:0.7,
+weight:.7,
 
 fillOpacity:0
 
@@ -548,13 +603,7 @@ fillOpacity:0
 
 function takeShot(){
 
-document
-.getElementById("tools")
-.style.display="none";
-
-document
-.querySelector(".fab")
-.style.display="none";
+tools.style.display="none";
 
 html2canvas(
 
@@ -590,10 +639,10 @@ borderColor.oninput=
 borderSize.oninput=
 ()=>selected.forEach(highlight);
 
-glowToggle.onchange=
+fadeSlider.oninput=
 ()=>selected.forEach(highlight);
 
-fadeSlider.oninput=
+glowToggle.onchange=
 ()=>selected.forEach(highlight);
 
 </script>
