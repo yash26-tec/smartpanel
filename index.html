@@ -125,8 +125,6 @@ id="preview"
 class="preview"
 >
 
-<br>
-
 Opacity
 
 <input
@@ -134,21 +132,17 @@ type="range"
 min="0.1"
 max="1"
 step="0.1"
-value="0.7"
+value="0.8"
 id="fadeSlider"
 style="width:100%"
 >
 
 <button onclick="resetMap()">
-
 Reset
-
 </button>
 
 <button onclick="takeShot()">
-
 Export PNG
-
 </button>
 
 </div>
@@ -174,10 +168,10 @@ maxZoom:18
 }).addTo(map);
 
 
-var selected=[];
-var overlays=[];
 var geoLayer;
 var uploadedImage="";
+
+var patterns={};
 
 
 document
@@ -229,8 +223,8 @@ data,
 style:{
 
 color:"#415a77",
-weight:0.6,
-opacity:0.5,
+weight:0.7,
+opacity:0.6,
 fillOpacity:0
 
 },
@@ -250,72 +244,110 @@ weight:2
 
 });
 
-
 if(uploadedImage!=""){
 
-
-var bounds=
-layer.getBounds();
-
-
-var overlay=
-
-L.imageOverlay(
-
-uploadedImage,
-
-bounds,
-
-{
-
-opacity:
-document
-.getElementById("fadeSlider")
-.value
-
-}).addTo(map);
+var id=
+feature.properties.ISO_A3;
 
 
-
-var element=
-overlay.getElement();
-
-
-setTimeout(()=>{
+var svg=
+map.getPanes().overlayPane
+.querySelector("svg");
 
 
-var latlngs=
-layer.getLatLngs()[0];
+if(!patterns[id]){
+
+var defs=
+document.createElementNS(
+"http://www.w3.org/2000/svg",
+"defs"
+);
+
+var pattern=
+document.createElementNS(
+"http://www.w3.org/2000/svg",
+"pattern"
+);
+
+pattern.setAttribute(
+"id",
+"img"+id
+);
+
+pattern.setAttribute(
+"patternUnits",
+"objectBoundingBox"
+);
+
+pattern.setAttribute(
+"width",
+"1"
+);
+
+pattern.setAttribute(
+"height",
+"1"
+);
 
 
-var points=
-latlngs.map(latlng=>{
+var image=
+document.createElementNS(
+"http://www.w3.org/2000/svg",
+"image"
+);
 
-var p=
-map.latLngToLayerPoint(latlng);
+image.setAttribute(
+"href",
+uploadedImage
+);
 
-return p.x+"px "+p.y+"px";
+image.setAttribute(
+"width",
+"100%"
+);
 
-});
+image.setAttribute(
+"height",
+"100%"
+);
+
+image.setAttribute(
+"preserveAspectRatio",
+"xMidYMid slice"
+);
 
 
-element.style.clipPath=
-"polygon("+points.join(",")+")";
+pattern.appendChild(image);
 
+defs.appendChild(pattern);
 
-element.style.pointerEvents="none";
+svg.appendChild(defs);
 
-
-},100);
-
-
-
-overlays.push(overlay);
+patterns[id]=pattern;
 
 }
 
 
-selected.push(layer);
+layer.setStyle({
+
+fillOpacity:
+document.getElementById("fadeSlider").value,
+
+fillColor:
+"url(#img"+id+")"
+
+});
+
+
+var path=
+layer._path;
+
+path.setAttribute(
+"fill",
+"url(#img"+id+")"
+);
+
+}
 
 });
 
@@ -328,22 +360,19 @@ selected.push(layer);
 
 function resetMap(){
 
-selected.forEach(layer=>{
+geoLayer.eachLayer(layer=>{
 
-geoLayer.resetStyle(layer);
+layer.setStyle({
+
+color:"#415a77",
+
+weight:0.7,
+
+fillOpacity:0
 
 });
 
-
-overlays.forEach(o=>{
-
-map.removeLayer(o);
-
 });
-
-
-selected=[];
-overlays=[];
 
 }
 
