@@ -28,6 +28,9 @@ height:100vh;
 width:100%;
 }
 
+
+/* Desktop */
+
 .toolbar{
 
 position:absolute;
@@ -49,6 +52,9 @@ width:230px;
 border:1px solid rgba(255,255,255,0.15);
 
 }
+
+
+/* Mobile */
 
 @media(max-width:700px){
 
@@ -72,6 +78,7 @@ backdrop-filter:blur(10px);
 
 }
 
+
 .uploadBtn{
 
 background:#2563eb;
@@ -90,6 +97,7 @@ font-size:15px;
 
 }
 
+
 .preview{
 
 width:100%;
@@ -101,6 +109,7 @@ border-radius:8px;
 display:none;
 
 }
+
 
 button{
 
@@ -123,6 +132,14 @@ cursor:pointer;
 font-size:15px;
 
 }
+
+
+input[type=range]{
+
+margin-top:8px;
+
+}
+
 
 </style>
 
@@ -198,13 +215,8 @@ maxZoom:18
 
 
 var geoLayer;
-
 var uploadedImage="";
-
 var patterns={};
-
-var indiaCustom="india.png";
-
 
 
 document
@@ -264,26 +276,11 @@ fillOpacity:0
 
 onEachFeature:function(feature,layer){
 
-layer.on('click',function(){
+layer.on(
 
+'click',
 
-/* AUTO FOCUS */
-
-map.fitBounds(
-
-layer.getBounds(),
-
-{
-
-padding:[20,20],
-
-maxZoom:5,
-
-animate:true
-
-});
-
-
+function(){
 
 layer.setStyle({
 
@@ -292,24 +289,10 @@ weight:2
 
 });
 
+if(uploadedImage!=""){
 
 var id=
 feature.properties.ISO_A3;
-
-
-var imageToUse=
-uploadedImage;
-
-
-if(id=="IND"){
-
-imageToUse=
-indiaCustom;
-
-}
-
-
-if(imageToUse!=""){
 
 
 var svg=
@@ -319,13 +302,11 @@ map.getPanes().overlayPane
 
 if(!patterns[id]){
 
-
 var defs=
 document.createElementNS(
 "http://www.w3.org/2000/svg",
 "defs"
 );
-
 
 var pattern=
 document.createElementNS(
@@ -333,30 +314,25 @@ document.createElementNS(
 "pattern"
 );
 
-
 pattern.setAttribute(
 "id",
 "img"+id
 );
-
 
 pattern.setAttribute(
 "patternUnits",
 "objectBoundingBox"
 );
 
-
 pattern.setAttribute(
 "width",
 "1"
 );
 
-
 pattern.setAttribute(
 "height",
 "1"
 );
-
 
 
 var image=
@@ -365,30 +341,25 @@ document.createElementNS(
 "image"
 );
 
-
 image.setAttribute(
 "href",
-imageToUse
+uploadedImage
 );
-
 
 image.setAttribute(
 "width",
 "100%"
 );
 
-
 image.setAttribute(
 "height",
 "100%"
 );
 
-
 image.setAttribute(
 "preserveAspectRatio",
 "xMidYMid slice"
 );
-
 
 
 pattern.appendChild(image);
@@ -402,7 +373,6 @@ patterns[id]=pattern;
 }
 
 
-
 layer.setStyle({
 
 fillOpacity:
@@ -414,15 +384,10 @@ document.getElementById("fadeSlider").value
 var path=
 layer._path;
 
-
 path.setAttribute(
-
 "fill",
-
 "url(#img"+id+")"
-
 );
-
 
 }
 
