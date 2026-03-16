@@ -21,31 +21,19 @@ body{
 margin:0;
 background:black;
 font-family:Arial;
+overflow:hidden;
 }
 
 #map{
 height:100vh;
+width:100%;
 }
 
-/* fade mask */
+/* cinematic pan feel */
 
-.fade{
+.leaflet-container{
 
-position:absolute;
-
-width:100%;
-
-height:100%;
-
-background:black;
-
-opacity:0;
-
-pointer-events:none;
-
-z-index:800;
-
-transition:.6s;
+transition:transform 1.4s ease;
 
 }
 
@@ -113,21 +101,25 @@ z-index:9999;
 
 }
 
+/* glow */
+
 .glow{
 
 filter:
-drop-shadow(0 0 10px gold)
-drop-shadow(0 0 20px orange);
+drop-shadow(0 0 8px gold)
+drop-shadow(0 0 18px orange);
 
 }
 
+/* border draw */
+
 .leaflet-interactive{
 
-stroke-dasharray:1400;
+stroke-dasharray:1200;
 
-stroke-dashoffset:1400;
+stroke-dashoffset:1200;
 
-animation:draw 1.2s forwards;
+animation:draw 1s forwards;
 
 }
 
@@ -141,6 +133,8 @@ stroke-dashoffset:0;
 
 }
 
+/* label animation */
+
 .label{
 
 color:white;
@@ -151,6 +145,16 @@ font-size:12px;
 
 text-shadow:0 0 8px black;
 
+animation:fade .6s;
+
+}
+
+@keyframes fade{
+
+from{opacity:0; transform:translateY(10px)}
+
+to{opacity:1}
+
 }
 
 </style>
@@ -158,8 +162,6 @@ text-shadow:0 0 8px black;
 </head>
 
 <body>
-
-<div class="fade" id="fade"></div>
 
 <div
 class="fab"
@@ -244,19 +246,17 @@ attributionControl:false,
 
 preferCanvas:true,
 
-zoomAnimation:true,
+zoomAnimation:false,
 
 fadeAnimation:false,
 
-markerZoomAnimation:false,
-
-zoomSnap:.25
+markerZoomAnimation:false
 
 }
 
 ).setView([20,0],3);
 
-/* optimized tiles */
+/* tiles */
 
 L.tileLayer(
 
@@ -270,9 +270,7 @@ keepBuffer:30,
 
 updateWhenIdle:true,
 
-updateWhenZooming:false,
-
-updateInterval:100
+updateWhenZooming:false
 
 }
 
@@ -315,26 +313,7 @@ e.target.files[0]
 
 };
 
-/* preload tiles */
-
-map.on('movestart',()=>{
-
-map.eachLayer(l=>{
-
-if(l._tiles){
-
-Object.values(l._tiles)
-.forEach(t=>{
-
-t.el.loading="eager";
-
-});
-
-}
-
-});
-
-});
+/* GEOJSON */
 
 fetch(
 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
@@ -367,9 +346,7 @@ layer.on(
 'click',
 function(){
 
-selected.push(layer);
-
-cinematicZoom(layer);
+focusCountry(layer);
 
 highlight(layer);
 
@@ -387,56 +364,39 @@ addFlag(feature,layer);
 
 });
 
-function cinematicZoom(layer){
+/* PAN ONLY */
 
-var fade=
-document.getElementById("fade");
+function focusCountry(layer){
 
-fade.style.opacity=.35;
+var center=
+layer.getBounds()
+.getCenter();
 
-/* preload delay */
+map.panTo(
 
-setTimeout(()=>{
-
-map.flyToBounds(
-
-layer.getBounds(),
+center,
 
 {
 
-padding:[120,120],
+animate:true,
 
-duration:2.7,
-
-easeLinearity:.12
+duration:1.4
 
 }
 
 );
 
-},200);
-
-/* remove fade */
-
-setTimeout(()=>{
-
-fade.style.opacity=0;
-
-},900);
-
 }
 
-function highlight(layer){
+/* highlight */
 
-var w=
-borderSize.value*
-(map.getZoom()/3);
+function highlight(layer){
 
 layer.setStyle({
 
 color:borderColor.value,
 
-weight:w,
+weight:borderSize.value,
 
 fillOpacity:fadeSlider.value
 
@@ -447,6 +407,8 @@ if(glowToggle.checked)
 layer._path.classList.add("glow");
 
 }
+
+/* label */
 
 function addLabel(feature,layer){
 
@@ -476,6 +438,8 @@ html:feature.properties.ADMIN
 labels.push(m);
 
 }
+
+/* flag */
 
 function addFlag(feature,layer){
 
@@ -565,6 +529,8 @@ layer._path.setAttribute(
 
 }
 
+/* record */
+
 function recordMode(){
 
 tools.style.display="none";
@@ -575,9 +541,9 @@ document
 
 }
 
-function resetMap(){
+/* reset */
 
-selected=[];
+function resetMap(){
 
 labels.forEach(l=>map.removeLayer(l));
 
@@ -600,6 +566,8 @@ fillOpacity:0
 });
 
 }
+
+/* export */
 
 function takeShot(){
 
