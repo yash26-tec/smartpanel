@@ -19,100 +19,121 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 body{
 margin:0;
-background:#030712;
+background:black;
 font-family:Arial;
 }
 
 #map{
 height:100vh;
-width:100%;
 }
 
-/* PRO toolbar */
+/* floating button */
 
-.toolbar{
+.fab{
 
 position:absolute;
 
-top:10px;
+top:15px;
 
-left:50%;
+right:15px;
 
-transform:translateX(-50%);
+width:45px;
 
-z-index:9999;
+height:45px;
 
-background:#020617cc;
+border-radius:50%;
 
-backdrop-filter:blur(10px);
-
-padding:8px;
-
-border-radius:12px;
+background:#2563eb;
 
 display:flex;
 
 align-items:center;
 
-gap:6px;
+justify-content:center;
 
-border:1px solid rgba(255,255,255,0.15);
+color:white;
+
+font-size:22px;
+
+cursor:pointer;
+
+z-index:9999;
+
+}
+
+/* hidden toolbar */
+
+.toolbar{
+
+position:absolute;
+
+top:70px;
+
+right:15px;
+
+background:#020617ee;
+
+backdrop-filter:blur(10px);
+
+padding:10px;
+
+border-radius:10px;
+
+display:none;
+
+flex-direction:column;
+
+gap:6px;
 
 color:white;
 
 font-size:12px;
 
-}
-
-.toolBtn{
-
-background:#1f2937;
-
-padding:6px 10px;
-
-border-radius:6px;
-
-cursor:pointer;
-
-border:none;
-
-color:white;
+z-index:9999;
 
 }
 
-.uploadBtn{
+.toolbar input{
 
-background:#2563eb;
-
-padding:6px 12px;
-
-border-radius:6px;
-
-cursor:pointer;
-
-}
-
-input[type=range]{
-
-width:70px;
-
-}
-
-input[type=color]{
-
-width:30px;
-
-height:25px;
-
-border:none;
-
-background:none;
+width:120px;
 
 }
 
 .glow{
 
-filter: drop-shadow(0px 0px 6px currentColor);
+filter: drop-shadow(0px 0px 8px gold);
+
+}
+
+/* border animation */
+
+.leaflet-interactive{
+
+stroke-dasharray:1000;
+
+stroke-dashoffset:1000;
+
+animation:draw 1s forwards;
+
+}
+
+@keyframes draw{
+
+to{
+
+stroke-dashoffset:0;
+
+}
+
+}
+
+.label{
+
+color:white;
+
+font-size:11px;
+
+text-shadow:0 0 5px black;
 
 }
 
@@ -122,16 +143,18 @@ filter: drop-shadow(0px 0px 6px currentColor);
 
 <body>
 
-<div class="toolbar">
-
 <div
-class="uploadBtn"
-onclick="fileInput.click()"
+class="fab"
+onclick="toggleTools()"
 >
-Upload
+⚙
 </div>
 
-<input type="file" id="fileInput" hidden>
+<div class="toolbar" id="tools">
+
+Upload
+
+<input type="file" id="fileInput">
 
 Opacity
 
@@ -149,10 +172,12 @@ Border
 <input
 type="range"
 min="1"
-max="6"
+max="5"
 value="2"
 id="borderSize"
 >
+
+Color
 
 <input
 type="color"
@@ -162,23 +187,14 @@ id="borderColor"
 
 Glow
 
-<input
-type="checkbox"
-id="glowToggle"
->
+<input type="checkbox" id="glowToggle">
 
-<button
-class="toolBtn"
-onclick="resetMap()"
->
-Reset
+<button onclick="cinematicMode()">
+Cinematic
 </button>
 
-<button
-class="toolBtn"
-onclick="takeShot()"
->
-PNG
+<button onclick="takeShot()">
+Export
 </button>
 
 </div>
@@ -187,36 +203,70 @@ PNG
 
 <script>
 
-var map=L.map('map',{
+var map=L.map(
+'map',
+{
+
 zoomControl:false,
-attributionControl:false
-}).setView([20,0],3);
+
+attributionControl:false,
+
+preferCanvas:true,
+
+zoomAnimation:false,
+
+fadeAnimation:false,
+
+markerZoomAnimation:false
+
+}
+
+).setView([20,0],3);
 
 L.tileLayer(
 
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 
-{maxZoom:18}
+{
+
+maxZoom:18,
+
+updateWhenZooming:false,
+
+updateWhenIdle:true
+
+}
 
 ).addTo(map);
 
-var geoLayer;
-
 var uploadedImage="";
+
+var selected=[];
 
 var patterns={};
 
-var selectedLayers=[];
+function toggleTools(){
 
-fileInput.addEventListener(
-"change",
-function(e){
+var t=
+document.getElementById("tools");
 
-var reader=new FileReader();
+if(t.style.display=="flex")
+t.style.display="none";
+
+else
+t.style.display="flex";
+
+}
+
+fileInput.onchange=function(e){
+
+var reader=
+new FileReader();
 
 reader.onload=function(){
 
-uploadedImage=reader.result;
+uploadedImage=
+reader.result;
 
 };
 
@@ -224,45 +274,135 @@ reader.readAsDataURL(
 e.target.files[0]
 );
 
-});
+};
 
 fetch(
 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
 )
 
-.then(res=>res.json())
+.then(r=>r.json())
 
 .then(data=>{
 
-geoLayer=L.geoJson(
+L.geoJson(
 data,
 {
 
 style:{
+
 color:"#415a77",
+
 weight:0.7,
-opacity:0.5,
+
 fillOpacity:0
+
 },
 
-onEachFeature:function(feature,layer){
+onEachFeature:
+function(feature,layer){
 
 layer.on(
 'click',
 function(){
 
-if(!selectedLayers.includes(layer))
-selectedLayers.push(layer);
+selected.push(layer);
 
-applyHighlight(layer);
+highlight(layer);
 
-if(uploadedImage!=""){
+cameraFocus(layer);
+
+addLabel(feature,layer);
+
+addFlag(feature,layer);
+
+});
+
+}
+
+}
+
+).addTo(map);
+
+});
+
+function highlight(layer){
+
+var zoom=
+map.getZoom();
+
+var w=
+borderSize.value*
+(zoom/3);
+
+layer.setStyle({
+
+color:
+borderColor.value,
+
+weight:w,
+
+fillOpacity:
+fadeSlider.value
+
+});
+
+if(glowToggle.checked)
+
+layer._path.classList.add("glow");
+
+}
+
+function cameraFocus(layer){
+
+map.fitBounds(
+
+layer.getBounds(),
+
+{
+
+padding:[50,50]
+
+}
+
+);
+
+}
+
+function addLabel(feature,layer){
+
+var center=
+layer.getBounds().getCenter();
+
+L.marker(
+center,
+{
+
+icon:L.divIcon({
+
+className:"label",
+
+html:
+feature.properties.ADMIN
+
+})
+
+}
+
+).addTo(map);
+
+}
+
+function addFlag(feature,layer){
+
+if(uploadedImage=="")
+return;
 
 var id=
 feature.properties.ISO_A3;
 
 var svg=
-map.getPanes().overlayPane
+map.getPanes()
+.overlayPane
 .querySelector("svg");
 
 if(!patterns[id]){
@@ -281,190 +421,75 @@ document.createElementNS(
 
 pattern.setAttribute(
 "id",
-"img"+id
+"id"+id
 );
 
 pattern.setAttribute(
-"patternUnits",
-"objectBoundingBox"
+"width","1"
 );
 
 pattern.setAttribute(
-"width",
-"1"
+"height","1"
 );
 
-pattern.setAttribute(
-"height",
-"1"
-);
-
-var image=
+var img=
 document.createElementNS(
 "http://www.w3.org/2000/svg",
 "image"
 );
 
-image.setAttribute(
+img.setAttribute(
 "href",
 uploadedImage
 );
 
-image.setAttribute(
-"width",
-"100%"
+img.setAttribute(
+"width","100%"
 );
 
-image.setAttribute(
-"height",
-"100%"
+img.setAttribute(
+"height","100%"
 );
 
-image.setAttribute(
-"preserveAspectRatio",
-"xMidYMid slice"
-);
-
-pattern.appendChild(image);
+pattern.appendChild(img);
 
 defs.appendChild(pattern);
 
 svg.appendChild(defs);
 
-patterns[id]=pattern;
+patterns[id]=true;
 
 }
 
-layer.setStyle({
-
-fillOpacity:
-fadeSlider.value
-
-});
-
 layer._path.setAttribute(
+
 "fill",
-"url(#img"+id+")"
+
+"url(#id"+id+")"
+
 );
 
 }
 
-});
+function cinematicMode(){
 
-}
-
-}).addTo(map);
-
-});
-
-function applyHighlight(layer){
-
-var zoom=map.getZoom();
-
-var base=
-borderSize.value;
-
-var weight=
-base*(zoom/3);
-
-layer.setStyle({
-
-color:
-borderColor.value,
-
-weight:weight
-
-});
-
-if(glowToggle.checked){
-
-layer._path.classList.add("glow");
-
-}else{
-
-layer._path.classList.remove("glow");
-
-}
-
-}
-
-map.on(
-'zoomend',
-function(){
-
-selectedLayers.forEach(layer=>{
-
-applyHighlight(layer);
-
-});
-
-});
-
-borderColor.oninput=function(){
-
-selectedLayers.forEach(applyHighlight);
-
-};
-
-borderSize.oninput=function(){
-
-selectedLayers.forEach(applyHighlight);
-
-};
-
-glowToggle.onchange=function(){
-
-selectedLayers.forEach(applyHighlight);
-
-};
-
-fadeSlider.oninput=function(){
-
-selectedLayers.forEach(layer=>{
-
-layer.setStyle({
-
-fillOpacity:
-fadeSlider.value
-
-});
-
-});
-
-};
-
-function resetMap(){
-
-selectedLayers=[];
-
-geoLayer.eachLayer(layer=>{
-
-layer.setStyle({
-
-color:"#415a77",
-
-weight:0.7,
-
-fillOpacity:0
-
-});
-
-if(layer._path)
-layer._path.classList.remove("glow");
-
-});
+document
+.getElementById("tools")
+.style.display="none";
 
 }
 
 function takeShot(){
+
+document
+.getElementById("tools")
+.style.display="none";
 
 html2canvas(
 
 document.querySelector("#map"),
 
 {
-
-useCORS:true,
 
 scale:2
 
