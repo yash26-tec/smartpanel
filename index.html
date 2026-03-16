@@ -28,12 +28,10 @@ width:100%;
 .toolbar{
 
 position:absolute;
-
 top:20px;
-
 left:20px;
 
-z-index:999999;
+z-index:9999;
 
 background:#020617;
 
@@ -136,7 +134,7 @@ type="range"
 min="0.1"
 max="1"
 step="0.1"
-value="0.6"
+value="0.7"
 id="fadeSlider"
 style="width:100%"
 >
@@ -160,11 +158,8 @@ Export PNG
 <script>
 
 var map=L.map('map',{
-
 zoomControl:false,
-
 attributionControl:false
-
 }).setView([20,0],3);
 
 
@@ -180,11 +175,8 @@ maxZoom:18
 
 
 var selected=[];
-
 var overlays=[];
-
 var geoLayer;
-
 var uploadedImage="";
 
 
@@ -205,7 +197,6 @@ reader.onload=function(){
 uploadedImage=reader.result;
 
 var img=
-
 document.getElementById("preview");
 
 img.style.display="block";
@@ -215,18 +206,14 @@ img.src=uploadedImage;
 };
 
 reader.readAsDataURL(
-
 e.target.files[0]
-
 );
 
 });
 
 
 fetch(
-
 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
-
 )
 
 .then(res=>res.json())
@@ -242,11 +229,8 @@ data,
 style:{
 
 color:"#415a77",
-
-weight:0.5,
-
-opacity:0.4,
-
+weight:0.6,
+opacity:0.5,
 fillOpacity:0
 
 },
@@ -262,7 +246,6 @@ function(){
 layer.setStyle({
 
 color:"#ffd60a",
-
 weight:2
 
 });
@@ -271,27 +254,60 @@ weight:2
 if(uploadedImage!=""){
 
 
+var bounds=
+layer.getBounds();
+
+
 var overlay=
 
 L.imageOverlay(
 
 uploadedImage,
 
-layer.getBounds(),
+bounds,
 
 {
 
 opacity:
-
 document
-
 .getElementById("fadeSlider")
-
 .value
 
-}
+}).addTo(map);
 
-).addTo(map);
+
+
+var element=
+overlay.getElement();
+
+
+setTimeout(()=>{
+
+
+var latlngs=
+layer.getLatLngs()[0];
+
+
+var points=
+latlngs.map(latlng=>{
+
+var p=
+map.latLngToLayerPoint(latlng);
+
+return p.x+"px "+p.y+"px";
+
+});
+
+
+element.style.clipPath=
+"polygon("+points.join(",")+")";
+
+
+element.style.pointerEvents="none";
+
+
+},100);
+
 
 
 overlays.push(overlay);
@@ -327,28 +343,36 @@ map.removeLayer(o);
 
 
 selected=[];
-
 overlays=[];
 
 }
+
 
 
 function takeShot(){
 
 html2canvas(
 
-document.querySelector("#map")
+document.querySelector("#map"),
 
-).then(canvas=>{
+{
+
+useCORS:true,
+
+scale:2
+
+}
+
+)
+
+.then(canvas=>{
 
 var link=
-
 document.createElement('a');
 
 link.download="map.png";
 
 link.href=
-
 canvas.toDataURL();
 
 link.click();
