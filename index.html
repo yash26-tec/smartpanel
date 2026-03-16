@@ -28,123 +28,83 @@ height:100vh;
 width:100%;
 }
 
-/* Desktop */
+/* Horizontal toolbar */
 
 .toolbar{
 
 position:absolute;
-top:15px;
-left:15px;
+
+top:10px;
+
+left:50%;
+
+transform:translateX(-50%);
 
 z-index:9999;
 
-background:#020617;
+background:#020617cc;
 
-padding:12px;
+backdrop-filter:blur(10px);
 
-border-radius:10px;
+padding:8px 10px;
+
+border-radius:12px;
 
 color:white;
 
-width:210px;
+display:flex;
+
+align-items:center;
+
+gap:8px;
 
 border:1px solid rgba(255,255,255,0.15);
 
 }
 
-/* Mobile fix */
+/* Buttons */
 
-@media(max-width:700px){
+.toolBtn{
 
-.toolbar{
+background:#1f2937;
 
-top:10px;
-left:10px;
+padding:6px 10px;
 
-width:170px;
+border-radius:6px;
 
-padding:10px;
-
-border-radius:10px;
-
-background:#020617dd;
-
-}
-
-.uploadBtn{
-
-padding:10px;
+cursor:pointer;
 
 font-size:13px;
 
-}
+border:none;
 
-button{
-
-padding:9px;
-
-font-size:13px;
+color:white;
 
 }
-
-}
-
 
 .uploadBtn{
 
 background:#2563eb;
 
-padding:12px;
+padding:6px 12px;
 
-border-radius:8px;
-
-text-align:center;
+border-radius:6px;
 
 cursor:pointer;
 
-margin-top:8px;
-
-font-size:14px;
+font-size:13px;
 
 }
 
 .preview{
 
-width:100%;
-
-margin-top:8px;
-
-border-radius:6px;
-
 display:none;
-
-}
-
-button{
-
-width:100%;
-
-background:#1f2937;
-
-color:white;
-
-border:none;
-
-padding:10px;
-
-margin-top:8px;
-
-border-radius:6px;
-
-cursor:pointer;
-
-font-size:14px;
 
 }
 
 input[type=range]{
 
-margin-top:6px;
+width:80px;
 
 }
 
@@ -155,8 +115,6 @@ margin-top:6px;
 <body>
 
 <div class="toolbar">
-
-<b style="font-size:14px">Overlay</b>
 
 <div
 class="uploadBtn"
@@ -173,11 +131,6 @@ id="fileInput"
 style="display:none"
 >
 
-<img
-id="preview"
-class="preview"
->
-
 <input
 type="range"
 min="0.1"
@@ -185,16 +138,30 @@ max="1"
 step="0.1"
 value="0.8"
 id="fadeSlider"
-style="width:100%"
 >
 
-<button onclick="resetMap()">
+<button
+class="toolBtn"
+onclick="resetMap()"
+>
+
 Reset
+
 </button>
 
-<button onclick="takeShot()">
+<button
+class="toolBtn"
+onclick="takeShot()"
+>
+
 PNG
+
 </button>
+
+<img
+id="preview"
+class="preview"
+>
 
 </div>
 
@@ -212,13 +179,15 @@ L.tileLayer(
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 
 {
-
 maxZoom:18
+}
 
-}).addTo(map);
+).addTo(map);
 
 var geoLayer;
+
 var uploadedImage="";
+
 var patterns={};
 
 document
@@ -232,13 +201,6 @@ var reader=new FileReader();
 reader.onload=function(){
 
 uploadedImage=reader.result;
-
-var img=
-document.getElementById("preview");
-
-img.style.display="block";
-
-img.src=uploadedImage;
 
 };
 
@@ -389,7 +351,9 @@ geoLayer.eachLayer(layer=>{
 layer.setStyle({
 
 color:"#415a77",
+
 weight:0.7,
+
 fillOpacity:0
 
 });
