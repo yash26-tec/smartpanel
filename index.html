@@ -27,7 +27,7 @@ font-family:Arial;
 height:100vh;
 }
 
-/* floating button */
+/* floating settings button */
 
 .fab{
 
@@ -37,9 +37,9 @@ top:15px;
 
 right:15px;
 
-width:45px;
+width:46px;
 
-height:45px;
+height:46px;
 
 border-radius:50%;
 
@@ -59,6 +59,8 @@ cursor:pointer;
 
 z-index:9999;
 
+box-shadow:0 0 15px rgba(37,99,235,0.6);
+
 }
 
 /* hidden toolbar */
@@ -75,15 +77,15 @@ background:#020617ee;
 
 backdrop-filter:blur(10px);
 
-padding:10px;
+padding:12px;
 
-border-radius:10px;
+border-radius:12px;
 
 display:none;
 
 flex-direction:column;
 
-gap:6px;
+gap:7px;
 
 color:white;
 
@@ -91,29 +93,34 @@ font-size:12px;
 
 z-index:9999;
 
+border:1px solid rgba(255,255,255,0.15);
+
 }
 
 .toolbar input{
 
-width:120px;
+width:140px;
 
 }
+
+/* cinematic glow */
 
 .glow{
 
-filter: drop-shadow(0px 0px 8px gold);
+filter: drop-shadow(0px 0px 12px gold)
+drop-shadow(0px 0px 25px orange);
 
 }
 
-/* border animation */
+/* border draw animation */
 
 .leaflet-interactive{
 
-stroke-dasharray:1000;
+stroke-dasharray:1200;
 
-stroke-dashoffset:1000;
+stroke-dashoffset:1200;
 
-animation:draw 1s forwards;
+animation:draw 1.2s forwards;
 
 }
 
@@ -127,13 +134,19 @@ stroke-dashoffset:0;
 
 }
 
+/* labels */
+
 .label{
 
 color:white;
 
-font-size:11px;
+font-size:12px;
 
-text-shadow:0 0 5px black;
+font-weight:bold;
+
+text-shadow:
+0 0 6px black,
+0 0 10px black;
 
 }
 
@@ -150,34 +163,37 @@ onclick="toggleTools()"
 ⚙
 </div>
 
-<div class="toolbar" id="tools">
+<div
+class="toolbar"
+id="tools"
+>
 
-Upload
+Upload Flag
 
 <input type="file" id="fileInput">
 
-Opacity
+Fill Opacity
 
 <input
 type="range"
-min="0.1"
+min="0"
 max="1"
 step="0.1"
-value="0.8"
+value="0.6"
 id="fadeSlider"
 >
 
-Border
+Border Size
 
 <input
 type="range"
 min="1"
-max="5"
+max="6"
 value="2"
 id="borderSize"
 >
 
-Color
+Border Color
 
 <input
 type="color"
@@ -187,14 +203,22 @@ id="borderColor"
 
 Glow
 
-<input type="checkbox" id="glowToggle">
+<input
+type="checkbox"
+id="glowToggle"
+checked
+>
 
 <button onclick="cinematicMode()">
-Cinematic
+Recording Mode
+</button>
+
+<button onclick="resetMap()">
+Reset
 </button>
 
 <button onclick="takeShot()">
-Export
+Export PNG
 </button>
 
 </div>
@@ -213,7 +237,7 @@ attributionControl:false,
 
 preferCanvas:true,
 
-zoomAnimation:false,
+zoomAnimation:true,
 
 fadeAnimation:false,
 
@@ -233,7 +257,9 @@ maxZoom:18,
 
 updateWhenZooming:false,
 
-updateWhenIdle:true
+updateWhenIdle:true,
+
+keepBuffer:10
 
 }
 
@@ -245,16 +271,17 @@ var selected=[];
 
 var patterns={};
 
+var labels=[];
+
 function toggleTools(){
 
 var t=
 document.getElementById("tools");
 
-if(t.style.display=="flex")
-t.style.display="none";
-
-else
-t.style.display="flex";
+t.style.display=
+t.style.display=="flex"
+?"none"
+:"flex";
 
 }
 
@@ -305,15 +332,16 @@ layer.on(
 'click',
 function(){
 
+if(!selected.includes(layer))
 selected.push(layer);
 
 highlight(layer);
 
-cameraFocus(layer);
+camera(layer);
 
-addLabel(feature,layer);
+label(feature,layer);
 
-addFlag(feature,layer);
+flag(feature,layer);
 
 });
 
@@ -352,15 +380,19 @@ layer._path.classList.add("glow");
 
 }
 
-function cameraFocus(layer){
+function camera(layer){
 
-map.fitBounds(
+map.flyToBounds(
 
 layer.getBounds(),
 
 {
 
-padding:[50,50]
+padding:[100,100],
+
+duration:2,
+
+easeLinearity:0.2
 
 }
 
@@ -368,16 +400,19 @@ padding:[50,50]
 
 }
 
-function addLabel(feature,layer){
+function label(feature,layer){
 
-var center=
-layer.getBounds().getCenter();
+var c=
+layer.getBounds()
+.getCenter();
 
+var m=
 L.marker(
-center,
+c,
 {
 
-icon:L.divIcon({
+icon:
+L.divIcon({
 
 className:"label",
 
@@ -390,9 +425,11 @@ feature.properties.ADMIN
 
 ).addTo(map);
 
+labels.push(m);
+
 }
 
-function addFlag(feature,layer){
+function flag(feature,layer){
 
 if(uploadedImage=="")
 return;
@@ -477,12 +514,46 @@ document
 .getElementById("tools")
 .style.display="none";
 
+document
+.querySelector(".fab")
+.style.display="none";
+
+}
+
+function resetMap(){
+
+selected=[];
+
+labels.forEach(l=>map.removeLayer(l));
+
+labels=[];
+
+map.eachLayer(function(layer){
+
+if(layer.setStyle)
+
+layer.setStyle({
+
+color:"#415a77",
+
+weight:0.7,
+
+fillOpacity:0
+
+});
+
+});
+
 }
 
 function takeShot(){
 
 document
 .getElementById("tools")
+.style.display="none";
+
+document
+.querySelector(".fab")
 .style.display="none";
 
 html2canvas(
@@ -512,6 +583,18 @@ link.click();
 });
 
 }
+
+borderColor.oninput=
+()=>selected.forEach(highlight);
+
+borderSize.oninput=
+()=>selected.forEach(highlight);
+
+glowToggle.onchange=
+()=>selected.forEach(highlight);
+
+fadeSlider.oninput=
+()=>selected.forEach(highlight);
 
 </script>
 
