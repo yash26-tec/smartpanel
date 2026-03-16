@@ -5,6 +5,9 @@
 
 <meta charset="utf-8"/>
 
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0"/>
+
 <link rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -24,6 +27,9 @@ font-family:Arial;
 height:100vh;
 width:100%;
 }
+
+
+/* Desktop */
 
 .toolbar{
 
@@ -47,21 +53,50 @@ border:1px solid rgba(255,255,255,0.15);
 
 }
 
+
+/* Mobile */
+
+@media(max-width:700px){
+
+.toolbar{
+
+bottom:0;
+top:auto;
+left:0;
+
+width:100%;
+
+border-radius:20px 20px 0 0;
+
+padding:18px;
+
+background:#020617ee;
+
+backdrop-filter:blur(10px);
+
+}
+
+}
+
+
 .uploadBtn{
 
 background:#2563eb;
 
-padding:10px;
+padding:14px;
 
-border-radius:6px;
+border-radius:8px;
 
 text-align:center;
 
 cursor:pointer;
 
-margin-top:8px;
+margin-top:10px;
+
+font-size:15px;
 
 }
+
 
 .preview{
 
@@ -69,11 +104,12 @@ width:100%;
 
 margin-top:10px;
 
-border-radius:6px;
+border-radius:8px;
 
 display:none;
 
 }
+
 
 button{
 
@@ -85,15 +121,25 @@ color:white;
 
 border:none;
 
-padding:8px;
+padding:12px;
 
-margin-top:8px;
+margin-top:10px;
 
-border-radius:6px;
+border-radius:8px;
 
 cursor:pointer;
 
+font-size:15px;
+
 }
+
+
+input[type=range]{
+
+margin-top:8px;
+
+}
+
 
 </style>
 
@@ -170,7 +216,6 @@ maxZoom:18
 
 var geoLayer;
 var uploadedImage="";
-
 var patterns={};
 
 
@@ -331,10 +376,7 @@ patterns[id]=pattern;
 layer.setStyle({
 
 fillOpacity:
-document.getElementById("fadeSlider").value,
-
-fillColor:
-"url(#img"+id+")"
+document.getElementById("fadeSlider").value
 
 });
 
