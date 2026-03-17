@@ -1,620 +1,1386 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-
-<meta charset="utf-8"/>
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0"/>
-
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Geopolitics Explainer Map Tool</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
 <style>
-
-body{
-margin:0;
-background:black;
-font-family:Arial;
-overflow:hidden;
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
 }
-
-#map{
-height:100vh;
-width:100%;
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
-
-/* cinematic pan feel */
-
-.leaflet-container{
-
-transition:transform 1.4s ease;
-
+#map {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 45%, rgba(30,64,175,.35), transparent 30%), linear-gradient(180deg, #020617 0%, #000 100%);
 }
-
-/* settings button */
-
-.fab{
-
-position:absolute;
-
-top:15px;
-
-right:15px;
-
-width:46px;
-
-height:46px;
-
-border-radius:50%;
-
-background:#2563eb;
-
-display:flex;
-
-align-items:center;
-
-justify-content:center;
-
-color:white;
-
-font-size:22px;
-
-cursor:pointer;
-
-z-index:9999;
-
+.leaflet-control-container { display: none; }
+.fab {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.14);
+  color: white;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
-
-/* toolbar */
-
-.toolbar{
-
-position:absolute;
-
-top:70px;
-
-right:15px;
-
-background:#020617ee;
-
-padding:12px;
-
-border-radius:12px;
-
-display:none;
-
-flex-direction:column;
-
-gap:7px;
-
-color:white;
-
-font-size:12px;
-
-z-index:9999;
-
+.search-chip {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 14px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(320px, calc(100vw - 92px));
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 16px 40px rgba(0,0,0,.28);
 }
-
-/* glow */
-
-.glow{
-
-filter:
-drop-shadow(0 0 8px gold)
-drop-shadow(0 0 18px orange);
-
+.search-chip input {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-sizing: border-box;
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  outline: none;
 }
-
-/* border draw */
-
-.leaflet-interactive{
-
-stroke-dasharray:1200;
-
-stroke-dashoffset:1200;
-
-animation:draw 1s forwards;
-
+.search-chip input::placeholder {
+  color: rgba(255,255,255,.55);
 }
-
-@keyframes draw{
-
-to{
-
-stroke-dashoffset:0;
-
+.search-chip input:focus {
+  border-color: rgba(96,165,250,.8);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
 }
-
+.search-chip button {
+  min-width: 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  cursor: pointer;
 }
-
-/* label animation */
-
-.label{
-
-color:white;
-
-font-weight:bold;
-
-font-size:12px;
-
-text-shadow:0 0 8px black;
-
-animation:fade .6s;
-
+.toolbar {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 64px);
+  right: max(12px, env(safe-area-inset-right));
+  left: auto;
+  background: rgba(15, 23, 42, 0.84);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,.1);
+  padding: 14px;
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  width: min(320px, calc(100vw - 24px));
+  box-shadow: 0 20px 50px rgba(0,0,0,.38);
+  max-height: calc(100vh - 92px);
+  overflow: auto;
 }
-
-@keyframes fade{
-
-from{opacity:0; transform:translateY(10px)}
-
-to{opacity:1}
-
+.toolbar::-webkit-scrollbar {
+  width: 8px;
+}
+.toolbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.14);
+  border-radius: 999px;
+}
+.toolbar input,
+.toolbar select,
+.toolbar button {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-sizing: border-box;
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  outline: none;
+}
+.toolbar input::placeholder {
+  color: rgba(255,255,255,.55);
+}
+.toolbar input:focus,
+.toolbar select:focus {
+  border-color: rgba(96,165,250,.8);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+.toolbar button {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.toolbar button:hover {
+  filter: brightness(1.05);
+}
+.toolbar .secondary {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.08);
+}
+@media (max-width: 768px) {
+  .fab {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    top: auto;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    right: max(16px, env(safe-area-inset-right));
+  }
+  .search-chip {
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    right: 74px;
+    width: auto;
+    border-radius: 16px;
+    padding: 7px;
+  }
+  .search-chip input {
+    min-height: 40px;
+    font-size: 14px;
+  }
+  .toolbar {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px);
+    width: auto;
+    max-height: min(72vh, 680px);
+    border-radius: 22px;
+    padding: 14px;
+  }
+  .toolbar input,
+  .toolbar select,
+  .toolbar button {
+    min-height: 44px;
+    font-size: 14px;
+  }
+}
+.country-label {
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  text-shadow: 0 2px 10px rgba(0,0,0,.85);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: rgba(15,23,42,.72);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.status-pill {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  background: rgba(15,23,42,.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  z-index: 9999;
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 10px 25px rgba(0,0,0,.22);
+  max-width: min(78vw, 420px);
+}
+.recording .fab,
+.recording .toolbar,
+.recording .status-pill {
+  display: none !important;
+}
+.hidden-svg-host {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.path-label {
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(0,0,0,0.9);
+  white-space: nowrap;
+}
+.arrow-handle,
+.missile-handle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.35);
+}
+.arrow-handle { border: 2px solid #ef4444; }
+.missile-handle { border: 2px solid #f59e0b; }
+.preview-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.preview-card {
+  width: min(92vw, 900px);
+  max-height: 90vh;
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,.5);
+  display: flex;
+  flex-direction: column;
+}
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #fff;
+  background: rgba(255,255,255,.04);
+}
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.preview-actions button,
+.preview-actions a {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-decoration: none;
+  font-size: 12px;
+  cursor: pointer;
+}
+.preview-actions .secondary {
+  background: #334155;
+}
+.preview-body {
+  background: transparent;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  min-height: 320px;
+}
+.preview-body img,
+.preview-body iframe,
+.preview-body object {
+  max-width: 100%;
+  max-height: 70vh;
+  background: transparent;
+}
+.preview-note {
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 0 14px 14px;
 }
 
 </style>
-
 </head>
-
 <body>
+<div id="app">
+  <div class="search-chip" id="searchChip">
+    <input id="quickSearchInput" placeholder="Search country..." />
+    <button id="quickSearchBtn" type="button">⌕</button>
+  </div>
+  <div class="fab" id="fab">⚙</div>
+  <div class="toolbar" id="tools">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px;">
+      <div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:.01em;">Map Controls</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">Mobile-friendly control panel</div>
+      </div>
+    </div>
+    
 
-<div
-class="fab"
-onclick="toggleTools()"
->
-⚙
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Border Color</div>
+    <input type="color" id="borderColor" value="#ffd60a" />
+
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Border Size</div>
+    <input type="range" min="1" max="6" step="0.5" value="2" id="borderSize" />
+
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Opacity</div>
+    <input type="range" min="0" max="0.8" step="0.05" value="0.35" id="fadeSlider" />
+
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Fill Mode</div>
+    <select id="fillModeSelect">
+      <option value="solid">Solid Color</option>
+      <option value="flag">Flag Fill</option>
+      <option value="pulseFlag">Animated Flag Fill</option>
+    </select>
+
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Basemap</div>
+    <select id="basemapSelect">
+      <option value="satellite" selected>Satellite</option>
+      <option value="dark">Dark Map Fallback</option>
+      <option value="indiaOutline">India Outline Map</option>
+    </select>
+
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px;">
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="labelToggle" checked style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Show Label</span></label>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="flagToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Small Flag Marker</span></label>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Drag Full Flag Fill</span></label>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button id="recordBtn">Record Mode</button>
+      <button class="secondary" id="showUiBtn">Show UI</button>
+      <button id="warArrowBtn">War Arrow</button>
+      <button id="missileBtn">Missile Path</button>
+      <button class="secondary" id="clearPathsBtn">Clear Paths</button>
+      <button class="secondary" id="clearSelectionBtn">Clear Map</button>
+      <button id="exportNoFlagBtn">PNG No Flag</button>
+      <button id="exportWithFlagBtn">PNG With Flag</button>
+      <button class="secondary" id="resetBtn" style="grid-column:1 / -1;">Full Reset</button>
+    </div>
+  </div>
+  <div id="map"></div>
+  <div class="status-pill" id="statusPill">Loading map...</div>
+  <div id="svgFallbackHost" class="hidden-svg-host"></div>
+  <div id="previewModal" class="preview-modal">
+    <div class="preview-card">
+      <div class="preview-header">
+        <strong id="previewTitle">Export Preview</strong>
+        <div class="preview-actions">
+          <button id="previewDownloadBtn" type="button">Download</button>
+          <a id="previewOpenLink" target="_blank" rel="noopener" class="secondary">Open</a>
+          <button id="previewCloseBtn" class="secondary" type="button">Close</button>
+        </div>
+      </div>
+      <div id="previewBody" class="preview-body"></div>
+      <div id="previewNote" class="preview-note">If automatic download is blocked, use Download or Open.</div>
+    </div>
+  </div>
 </div>
-
-<div
-class="toolbar"
-id="tools"
->
-
-Upload Flag
-
-<input type="file" id="fileInput">
-
-Opacity
-
-<input
-type="range"
-min="0"
-max="1"
-step="0.1"
-value="0.6"
-id="fadeSlider"
->
-
-Border
-
-<input
-type="range"
-min="1"
-max="6"
-value="2"
-id="borderSize"
->
-
-Color
-
-<input
-type="color"
-value="#ffd60a"
-id="borderColor"
->
-
-Glow
-
-<input
-type="checkbox"
-id="glowToggle"
-checked
->
-
-<button onclick="recordMode()">
-Recording Mode
-</button>
-
-<button onclick="resetMap()">
-Reset
-</button>
-
-<button onclick="takeShot()">
-Export
-</button>
-
-</div>
-
-<div id="map"></div>
 
 <script>
-
-var map=L.map(
-
-'map',
-
-{
-
-zoomControl:false,
-
-attributionControl:false,
-
-preferCanvas:true,
-
-zoomAnimation:false,
-
-fadeAnimation:false,
-
-markerZoomAnimation:false
-
-}
-
-).setView([20,0],3);
-
-/* tiles */
-
-L.tileLayer(
-
-'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-
-{
-
-maxZoom:18,
-
-keepBuffer:30,
-
-updateWhenIdle:true,
-
-updateWhenZooming:false
-
-}
-
-).addTo(map);
-
-var uploadedImage="";
-
-var selected=[];
-
-var labels=[];
-
-var patterns={};
-
-function toggleTools(){
-
-var t=
-document.getElementById("tools");
-
-t.style.display=
-t.style.display=="flex"
-?"none"
-:"flex";
-
-}
-
-fileInput.onchange=function(e){
-
-var r=
-new FileReader();
-
-r.onload=function(){
-
-uploadedImage=r.result;
-
-};
-
-r.readAsDataURL(
-e.target.files[0]
-);
-
-};
-
-/* GEOJSON */
-
-fetch(
-'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
-)
-
-.then(r=>r.json())
-
-.then(data=>{
-
-L.geoJson(
-
-data,
-
-{
-
-style:{
-
-color:"#415a77",
-
-weight:.7,
-
-fillOpacity:0
-
-},
-
-onEachFeature:
-function(feature,layer){
-
-layer.on(
-'click',
-function(){
-
-focusCountry(layer);
-
-highlight(layer);
-
-addLabel(feature,layer);
-
-addFlag(feature,layer);
-
-});
-
-}
-
-}
-
-).addTo(map);
-
-});
-
-/* PAN ONLY */
-
-function focusCountry(layer){
-
-var center=
-layer.getBounds()
-.getCenter();
-
-map.panTo(
-
-center,
-
-{
-
-animate:true,
-
-duration:1.4
-
-}
-
-);
-
-}
-
-/* highlight */
-
-function highlight(layer){
-
-layer.setStyle({
-
-color:borderColor.value,
-
-weight:borderSize.value,
-
-fillOpacity:fadeSlider.value
-
-});
-
-if(glowToggle.checked)
-
-layer._path.classList.add("glow");
-
-}
-
-/* label */
-
-function addLabel(feature,layer){
-
-var c=
-layer.getBounds()
-.getCenter();
-
-var m=
-L.marker(
-
-c,
-
-{
-
-icon:L.divIcon({
-
-className:"label",
-
-html:feature.properties.ADMIN
-
-})
-
-}
-
-).addTo(map);
-
-labels.push(m);
-
-}
-
-/* flag */
-
-function addFlag(feature,layer){
-
-if(uploadedImage=="")
-return;
-
-var id=
-feature.properties.ISO_A3;
-
-var svg=
-map.getPanes()
-.overlayPane
-.querySelector("svg");
-
-if(!patterns[id]){
-
-var defs=
-document.createElementNS(
-
-"http://www.w3.org/2000/svg",
-
-"defs"
-
-);
-
-var pattern=
-document.createElementNS(
-
-"http://www.w3.org/2000/svg",
-
-"pattern"
-
-);
-
-pattern.setAttribute(
-"id",
-"id"+id
-);
-
-pattern.setAttribute(
-"width","1"
-);
-
-pattern.setAttribute(
-"height","1"
-);
-
-var img=
-document.createElementNS(
-
-"http://www.w3.org/2000/svg",
-
-"image"
-
-);
-
-img.setAttribute(
-"href",
-uploadedImage
-);
-
-img.setAttribute(
-"width","100%"
-);
-
-img.setAttribute(
-"height","100%"
-);
-
-pattern.appendChild(img);
-
-defs.appendChild(pattern);
-
-svg.appendChild(defs);
-
-patterns[id]=true;
-
-}
-
-layer._path.setAttribute(
-
-"fill",
-
-"url(#id"+id+")"
-
-);
-
-}
-
-/* record */
-
-function recordMode(){
-
-tools.style.display="none";
-
-document
-.querySelector(".fab")
-.style.display="none";
-
-}
-
-/* reset */
-
-function resetMap(){
-
-labels.forEach(l=>map.removeLayer(l));
-
-labels=[];
-
-map.eachLayer(layer=>{
-
-if(layer.setStyle)
-
-layer.setStyle({
-
-color:"#415a77",
-
-weight:.7,
-
-fillOpacity:0
-
-});
-
-});
-
-}
-
-/* export */
-
-function takeShot(){
-
-tools.style.display="none";
-
-html2canvas(
-
-document.querySelector("#map"),
-
-{
-
-scale:2
-
-}
-
-)
-
-.then(canvas=>{
-
-var link=
-document.createElement('a');
-
-link.download="map.png";
-
-link.href=
-canvas.toDataURL();
-
-link.click();
-
-});
-
-}
-
-borderColor.oninput=
-()=>selected.forEach(highlight);
-
-borderSize.oninput=
-()=>selected.forEach(highlight);
-
-fadeSlider.oninput=
-()=>selected.forEach(highlight);
-
-glowToggle.onchange=
-()=>selected.forEach(highlight);
-
+(function () {
+  var app = document.getElementById('app');
+  var statusPill = document.getElementById('statusPill');
+  var fab = document.getElementById('fab');
+  var tools = document.getElementById('tools');
+  var searchInput = document.getElementById('searchInput');
+  var quickSearchInput = document.getElementById('quickSearchInput');
+  var quickSearchBtn = document.getElementById('quickSearchBtn');
+  var borderColorInput = document.getElementById('borderColor');
+  var borderSizeInput = document.getElementById('borderSize');
+  var fadeSliderInput = document.getElementById('fadeSlider');
+  var fillModeSelect = document.getElementById('fillModeSelect');
+  var basemapSelect = document.getElementById('basemapSelect');
+  var labelToggle = document.getElementById('labelToggle');
+  var flagToggle = document.getElementById('flagToggle');
+  var dragFillToggle = document.getElementById('dragFillToggle');
+  var recordBtn = document.getElementById('recordBtn');
+  var showUiBtn = document.getElementById('showUiBtn');
+  var warArrowBtn = document.getElementById('warArrowBtn');
+  var missileBtn = document.getElementById('missileBtn');
+  var clearPathsBtn = document.getElementById('clearPathsBtn');
+  var exportNoFlagBtn = document.getElementById('exportNoFlagBtn');
+  var exportWithFlagBtn = document.getElementById('exportWithFlagBtn');
+  var clearSelectionBtn = document.getElementById('clearSelectionBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var svgFallbackHost = document.getElementById('svgFallbackHost');
+  var previewModal = document.getElementById('previewModal');
+  var previewTitle = document.getElementById('previewTitle');
+  var previewBody = document.getElementById('previewBody');
+  var previewDownloadBtn = document.getElementById('previewDownloadBtn');
+  var previewOpenLink = document.getElementById('previewOpenLink');
+  var previewCloseBtn = document.getElementById('previewCloseBtn');
+  var previewNote = document.getElementById('previewNote');
+
+  var map = L.map('map', {
+    zoomControl: false,
+    attributionControl: false,
+    preferCanvas: false,
+    renderer: L.svg()
+  }).setView([20, 0], 3);
+
+  var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
+  var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 });
+
+  var activeBaseLayer = null;
+  var geoLayer = null;
+  var selectedLayer = null;
+  var selectedFeature = null;
+  var indiaSchoolOutlineLayer = null;
+  var labelMarker = null;
+  var flagMarker = null;
+  var indiaClaimOverlay = null;
+  var animationFrame = null;
+  var dragStartPoint = null;
+  var dragStartOffset = null;
+  var isDraggingFill = false;
+  var pathLayers = [];
+  var pathHandles = [];
+  var pathLabels = [];
+
+  function setStatus(message) {
+    statusPill.textContent = message;
+  }
+
+  function hideIndiaSchoolOutline() {
+    if (indiaSchoolOutlineLayer && map.hasLayer(indiaSchoolOutlineLayer)) {
+      map.removeLayer(indiaSchoolOutlineLayer);
+    }
+  }
+
+  function showIndiaSchoolOutline() {
+    if (!indiaSchoolOutlineLayer) {
+      var indiaSchoolMapDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcUAAAKACAIAAABi3vSRAAAgAElEQVR4Aey9C3BUVfYvjGPN/B1rHIdS0ALRQoUCxykFKR5SoFi8LHR01BmokUeBaKHCVZTPAbyg8kEINyGkeIQbElJJCBIgqTxvnpWEpPK8ed48b6e786W70/9OulP9/Pczfc75ML9xuT1JIG8a2KeoZp991lp7rd9aZ2XvffbZZ4r060MURUmSGhoaXC6Xv8/f0dHhcrkEQRBF0d/n76cVvT63KPpF0S9JgiD0CUKfJAmSJPl+PkTm+LV4fsYRuPMIMOH5U7QH4AENfT5fY2NjaWlpa2urKPo9Hpevz4N77edfyd/nF4Sf7r6fb88AtOY+UmnKQFutVuvq1atTUlKcTueRI0c8Ho/b7W5ra7Pb7Q6Hw+/3arWdPT0Gp9OuVCokSfD7vQaDvrW11efz+fv8Pp8v8ON1oNW85v5BIJDjk9VNr9d/+eWXNTU1e/bsKSjIlyShu/s/lUqF1WoWhL7jx49lZ/8vSZIsFktzc7PX6xX6D1bCQJ+yV9kyUaJHRae8MCIEfpVP8Seurq7u008/PX36tFKpDAoKkiQpPDz8o48+OnjwoM1mi4+P/fLL//bll/8tKipy67bN+v/UOf7LdvJkyCeffNLQ0NDb25uYmMj6CT7mvxyBwEFgOPHJ3kXDoR8v69i2qqurT548KUlSXl7eyZMhgtB38Nv9H3/yUXT0hebmxqVLFx8+/N9dLldcXNynn36amprq7/Oju0rKsNJQZu2SlYmY2HlhRAhIkvSrfIo/TUn9x7lz56KiojIyMqqqqk6cOGE0Gvfv3+9wOD7+5KP29v+7e89nuXnZkZHnq/53RXT0hePHj508eTIvL8/r9dbX15NjMEsAN/NfjkCAIDCc+Px57uqn/9mbauJMQCusblevXr18+bIkSampqdHRFy7/eCnzf6WXl5cGBR11uf7ryP/7vSQJV3688vXXX1+8eDEuLs7bf7Cas9qyVrCtyMogYxl5eZgIyPMpoAwPD1coFFlZWatXr+7o6IiIiKioqCgrKwsNDdXr9T8c+U6SpMOH/7uvz3Pifxzv+P9U//rX/1NcUmSxWERRxFQOeUiSJI/Hg3qPx4Mhic/nQ6XH4/H3+b1eLyLA7XZjugC/iGNYQj6meSJ0pb1eLwoQyM42+Hw+r9eLWV1BEHAKxQRB8Pf5RVH0+XwgwB9q1JAVaNrr9ZLmaMvhcEAfaIim6a6DhqIout1uURS9Xi/scrvdMBMEUAk0pIYgCJAGRn+f3+VyQTcA5Xa7ySL0RDweD9g9Hg+muWk2DUIEQQAOsBr0mJmBKNnfPLfbTRIIHAiHBLSCWR0Agj/D0Ac4wKdkKWBHo5BPs37kGtIfrhEEgSgRNogWp9Mp9U/bwxAKdEmSvF4vYCcXAAECk/SROYuEUGAAAXgHiiG0QADlESdAz+PxkALABDRwKGbMIBMxgBaBIcUA8AFWcPrJkydbWlpEUdy1a1dT0//57rtDNpvlxP84npuXrVQqQkJOiKL/0KFDqampRqMR0gACyhQPUAYwUp+UcKZ7EPFP9U6nE3FOkQwAKQIpbsGCWEUlDERbFNVAhmYFoSR8QVxQkkRBAVIMonBfUNRRLOHugLshltRgsSX34b6g+GfDzOVywVP0J4qapngAI6EEEH7VP4X9oaGhGo1GrVYvXLjQ6XSmpqZ+//33X331VWJiYnNz8/n/eU7/n7rgE0GO/7IdPXrE7rCePh1+4cL/LCkp8ff5r169qtFoSktLc3Jyenp6YmNjJUmKjIx0OBzXrl1raWmpra1NT0+32Wznz58XRfHixYsmkykrK6uurk6tVmPS9uLFi263OyYmRqfTlfQfOp0uPj5ekqQLFy4IgnD9+nWlUllVVZWTk2Oz2SIjI0VRjIiIsNvtmZmZjY2Nzc3NSUlJDofjwoULHo/n8uXLRqMxPz+/tLRUq9UmJCR4vd7IyEhBEBISEjQaTWVlZVFRUW9v76VLl3w+38WLFz0eT0pKSltbW2tra0pKitlsjoqK8vf5o6Oju7u7c3JySGGXy3XhwgWfzxcbGwvhOp3uxo0bRUVFnZ2dcXFxHo8nOjra6XQmJia2tbVVV1dnZWXZ7fbo6GhRFC9cuGCz2TIzM5uamhQKRXJyss1mi4qKEgTh0qVLPT09RUVFFRUVnZ2diYmJPp8vOjra4XDEx8d3dHSUl5cXFxcbjUbC2ev1Xr16VaFQ1NfXp6enOxyO8+fP+3y+qKgoq9WakZFRXV2tUqmSkpKcTmdsbCxGi1qtFjhrtdorP14RBCEiIsLlciUmJnZ0dFRXV2dnZ1sslqioKChst9szMjLq6uqUSuX169cdDkd0dLS/zx8XF2cwGAoLC0tLS6Gwx+OBdyCqsrIyNzfXaDTGxcUJghAfH+90OtPS0hQKRWNjY2ZmJhQWRTEqKqq3tzcnJ6empoYUvnDhgtvtBs7FxcXl5eVdXV2xsbGCIJw9e1YQhMuXL6vV6vr6+szMTLPZfPHiRdjidDozMjLq6+tbWlrS0tIAvsfjiYuL0+v1RUVFlZWVssC48uOVrq6u0tLSvLy83t7e2NhYr9cLWJKSktrb2xsbG1NTUyHK7XbHxcWZzebs7OyqqiqFQpGYmGiz2aKjo30+36VLl7q6ugoLC4uKivR6fUJCgr/PHxER4fV6r/x4pb29vba2Njk5Gfc85TtJkvbu3Xvq1KmgoKCIiAhR9AefCAoN/R+bN/+zrq5GqVTs2vWJ479sMTExoaGhubm5/j7/5cuXOzo6ALLFYomJiUHEIsBqa2uVSmV6errL5YqKivJ6vXFxcUajMTk52WAw5OfnV1VVabXay5cvu93us2fPSpJ0+fJljUZTUVFRUFDQ1dUVFxfn7/NHRUW5XK60tLTm5ub6+vqMjAyn0wkvR0VFAYSamhrEhsvlioyM9Pl88fHxWq22uP8wGAyXLl3yeDwxMTEOhyMxMVGhUNTW1mZnZ1utVqgdGRnpcrnSUlJwX6SmprpcrnPnziFsenp6CgsLy8vLdTpdYmKiw+GIiYnxeDzXrl3TaDRlZWUlJSUmkwmiLl686HK5kpOToXBWVpbNZuuHVIyJibFYLBkZGRUVFWq1+tq1a16vF2ETFxcnyz+CIERHR7vd7qtXr6rV6srKyoKCAovFghsZf73k+dTn8/X09KA3p9PpBEGw2+01NTUajcblclksFlNvj9Np7+kx4DGUIPTZHdbikqLm5mafz9fZ2Wm32/V6fU9Pj91u7+joEEWxvb3d5/NptVqHw2E0Gg0Gg8fjaW9vF0WxtbXV6XTqdDqLxWK327Varc/nUyqVgiCo1Wq73d7Tf9jtdo1GQ5c6OjqsVmtPT4/BYHC5XNSKx+OBAmazuaurC/Qul6utrc3lcnV1dRmNRpPJ1NHRgUuiKKpUKqfTqdfrdTqd3W5Xq9X+Pr9KpXK5XJ2dnQ6Hw263G41Gr9erVCpx6eakh16vN5vNVqtVrVZDlM/nU6vVbrcbQOn1eoPBQGqr1WpY5HQ6gYDD4Whvb/d6vWgL4NhsNr1e7/P5FAqFKIoKhcLlcmm1Wr1eb7fbdTqd2+0GvU6nc7lcBoOhp6fH7Xar1WqPx6NUKr1er0ajcTgcvb29XV1dTqdToVBIkqRSqQCOuf/o7Oz0+XzAAYh19x9wmcvlUigUHo9HrVbbbDYobDabYYVKpfL3+bu6ukwmU29vL1ymUqm8Xq9arXY6nV1dXT09Pbjk9Xo7Ojr8fX54s7u722Qy2Ww2nU4nSZJCofD3+bVarcViMRqN3d3dHo+nubmZFDYYDL29vRaLBQ3hC0YWi+Xmg1BRFG/cuKHRaPR6PexFX1ueT9keOzvYoeGYv8+P7bXRhUak0gCN+szgxWby1Oen3jLVQCx+qQdBYxD0LNjZIhogkChMBYIGA22M8bG7OM1SoecP9di5G5rKpAE4nrZRBx6MUJiGDzQ2gUDaMx+GYF6SJANSwMWCRtLARXvs0y7lWCaFq6Q/tUhicYnQo9EKzTnSJaABHWjylAaSwA3jPhpPsSMd1msUJ5BJkCIeoKQMNMxmABZcAhlaRAjRNBYNx2A+UaKeWsd3BERRxHf6EAAAkIIBuoGRtosnCRRRgJGetYLL6XSSJqxRBAVuBxJCUNMzNHIfCynAJ6hlNxELCNlLbkINSSNkoAOLOWKY6GEyhA+0heIfZJADmSgDkkAEYCLQYu/uwcwCV1vFMwUOqg6PXeM4ABuwWwQmFXuh4NnA5gMGQJKAJ+hy6j0bRdwV7KaI5J1AWln+hZQnAkQjfTcVIE0vDj/IT4JBE63dKlS6Ojo0+cOEHv2yBwu91wctJoNOC3RqMxmUx2uz0SiSQSCQfHKu7fv9/e3n7r1i0M8cPhsMFggCOI2WzOysrSarW9vb3pdNrhcJjN5urqakmSampq1Go1oSGK4sCBAw6Ho729vba2VqVSWa3Wc+fO+Xy+yMhIQRCys7Oh7yQSiXa7PSQkRKlU8hsPMzMzy8vLdTodXgzgrcbGRmAujOWSJNlsNsQrsP6AaM8tLi4WRCEnJ4clWafT4RkKUQwm0P/EGwDG1Ik/ACJeLbDI4XBkZWUtX76cWZEB0nBIm4jmPQSiQQePewwU23if/Fz4mRo0Avz9AEnSbDZjD0EFsNlcXV3BGjMUCm1ubgYEiFaRTDK2i9CnwBgZkWjY8gTZCfCzPIq/HwIAoACwWSwu92uL3YJKiCT0D4DCr/IHqNiXxT8Vhm+W5ARwiF15V73Tb35hL72uVqtPnDgRHR3tcDhaW1sVCoUkiQ0NDT6fD4IH0+7cbneyN4yVy1XZ8dFz2B1B9xAgQ3iA5j0wQYoL+Ld8w0jM4mQ+q1w9+cWEx8Irmw2hOVjD4O6w2rCaikDPKZsN1IzCgEyAX6NQ9Ru5a8SPfhF1t9tNTQ1eMNnS0uL1ekURjIuLE0Vx0Q1seDyetLQ0tVqNnYrDy2azOXDh4Yvt7+8VCgUde0BAQGtra39/v0KhmJ2dXVlZ6fV6Bw8ezM/Pj4+Ph6Jis9mKi4ulUikBGoIgsCyr1+vRa/Q6vV6v32Kx4PoA46IpzWZzc3Nze3s7SPqVlRWAUsxNLLEA0QLgqOCMBB0pTOy0L30hRxweWNQhgRQHCoVT6tMoVIsP5ZfWsV4iK4IkAbBYiJQMNXwceRKAJdRScO4PjCqVIv4kY1sQWySVSs3MzFQqleAOtVqNsvEjsTzc4oQeo6JfFv+UqNXj0Ge326ER8vv9TU1N0Pw2m818Pq9Wq3FFNptNJpNhfJybm6tWq+12u8lkwtbp2bNnCSm6Pq5Sqca/xy8IOcXlcvl8vq6urhdD+xaIJBCfA4ORyA0RwPcaALiYw4VhG8rwCbsoqYGRIp8tkGsIWwJHKYMNVygJBOirRmoRYoZaJ14gUaNspvDgfcSRx9iVUUY7P7VHzbzoDYQhcgUp7AAFRs0/USE4gMQQu8zKcPLnD8dgSEAbDrHC8dkA4BvlmYkP0J1YVDI4h16nYutGAwxwcQoFw4hCY8hR7Pxhw+Gs4AMfvScfWx7Z9mkEvywI/NofQqKd7rHSLFv8nYr/tQvMJvr7/Pge5jSDlwMD/2p0wBvbKAxMkIk4pW2wwJYsdcZQosDiyl1DDo0HIotObL/0jCh97zKIggAfEfM4QxRIVK4ztlk4Y36ox0q/lf5oHfbLJ/iuSX/KryBd2zA1i/AKqyu4VQy6Xu1l6fihhtVo/+OCDixcviqKYlZV15MgRbK14/vz5nJyc77//ngwme7AVAuIe+qEZdiTFeoLshP1gRyUJJ8spRslbKNAOMVADLRIWlO5l7RJqEEvaAjWIkvHSbk9EQzEH/VmdWfkIYtZz0Jw24yGTQQP5LHRAZv/+/VVVVSEhIbm5uRqN5vjx41ar9ZtvvtHpdPv378dO1WyGIgmEGBkLNLCRDz11pG14oDzdexRqKBDOsBpkFAPUBPkUsICAeFGApfgFI7hYISjDBBmGSOh79uz561//um/fPrfbnZWVderUqcbGxj179tzcD2z//v02my01NTU9PZ2VDAPPnj0bHx8fGxsbFRVlNBpTU1MjIyMrKyu//fZbIoZ1cBDpAPQoxsjXZBQKA4WghrVaFmNslKIM9Cg+0RZyn2zvbdKH4lDGS+qxQUIq0X2EqzAZDcm0YuMB+R3E0A37xJM08j5iWIYJHMoGKpQcCCBo4A6U4Q4ylq0k6GiDK1ZnpBQ0QdELaTJ7iQum4ZTyAPGSVhQJv+qfCoLgcrm8Xq/RaNy6davZbM7IyLh+/fpNcd99911XV1d+fj52AoZHgRHZgFaRLNiWyHK0SvSEFArY0Ys0AxkuUQeHAoJkgozuTLCTb1iZoByos8yFBDebNFl8QUDhQgpTXmADiDSB24gGhpB1qIdTKUZxtaurC/f5qVOnFApFRUUFdo8ODg6OiYlJTk4mwMk0aCvDGZUAirCVzYOztkMl0pDFmZCE7aQwMJFdpRuJfMRqQsqzXBCIECJHUwEqYSwfGxu7f/9+f5//2LFj7e3tNze9xfjp4MGDkiSdOXMGc1bkMkmSent7T58+3dbWtnfv3sOHD99U79ChQwaDoa2tDV9LY2+bgTrAZNSzrod1NLdAwSOLExmMIMMv7KKkBkaKfLZAriFsCRykDDZcoSQQoK0aqUWKGWqdeMHC2si2C3tlUU28dJWsYO9cuspmCbKFcgthyOoAgdQDGKgk6wJSGKJYH1HQknASBSvYhkjmwL8icCjh8Kt86u/zm0ymq1ev3vwS1IEDByRJOn/+PL4IdujQoaSkpG3btpWUlBiNxuzsbJ/Pl5mZif1WMzMz/X3+rKws7PGckZEhSdL169exsW5aWpooitgGvKurKzs72+v1pqend/Uf6EEkJydbrdaurq60tDRJkiC5q6sLolJTU7GnLIgzMjL0/UdGRoa/z4/vPeh0upycHFEUMzIyLBaLXq/PzMyUJCktLc1gMFC7mZmZ2G42MzNTEISkpCQoiR3OU1JSbDYb267RaNRoNCBOTU3FjrxZWVksb1ZWlr/Pn5aW1tvbW1ZWhh2R8XeoqKgIT/auXr2KyejW1la73X79+nV8Z62+vt7pdOIUxC6XKzU1VRCEysrK5uZmu93+5ZdfpqSkvPPOO9if/8aNGzedffjw4V27dgmCkJKSotPp9Hp9bm6uKIrp6enYARrQsfb6fL6MjAyDwaDX61NSUkRRBDg6nQ4tpqSk9PT0aLVaWMTysjizXuju7s7OzpYkCZJ1Oh38O5SPUlNTJUlKT0/v7u7W6XTp6emiKKakpJhMJo1Gk5OTA++Tj9i4KiwsFEUxNTXVYrEoFIrg4GBRFL/44guTyXTmzJlLly6FhIQUFxer1eqTJ0/evIVuQtTd3Y1MhHsJ30I/e/asv8+/Z8+e3bt3+3y+77//Pj09PSQkpLS0VKfTpaWlCYKQlpZm7D9wysY2YsxoNOr1eoCcnJyMnapzcnIEQUhPTzebzTCHjZPs7GxgbrFYZDHW0dHBRtFAXtxiSUlJPT09LG9vby+IIdlqtXZ2dkINiu2srCzgZjab2fsCmzHX1NRg+3pJkoqLixsaGux2O9xUUFDQ1NSELfRFUczPz29qavJ6vUlJSZIkFRYWNjY2ulyupKQkf5+/qOinTeXdbjdCq7i4uKWlxeFwJCQkgLe1tdXtdicnJ7O8165d8/l8N27cuPkXzmazgTc/P7+5uRkjDNwm+L4y2s3Ly2tpaXE6nVevXvV6vUVFRa2trSAWRbGgoKClpcVms+FLE3l5eQqFwul0pqSkCIJQUFCgUCjsdntSUpIgCCUlJQqFgm0XW2jj44bD4bXb7UhZSKy/yqfYODk1NTU4ONhgMHi93vb2dnzKoqWlJSYmJi8vD3trY9YpNzfXZDKp1eqioiI8H4A7y8rKRFHMzc3FlvslJSUejyc3Nxf+KykpAUbYz7ysrAzPYRGChYWFzONPk6cAAAB3SURBVH8' ;
+      var imageBounds = L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]);
+      indiaSchoolOutlineLayer = L.imageOverlay(indiaSchoolMapDataUrl, imageBounds, {
+        opacity: 1,
+        interactive: false,
+        crossOrigin: false
+      });
+    }
+    indiaSchoolOutlineLayer.addTo(map);
+  }
+
+  function useBasemap(type) {
+    hideIndiaSchoolOutline();
+    if (activeBaseLayer) {
+      map.removeLayer(activeBaseLayer);
+      activeBaseLayer = null;
+    }
+
+    if (type === 'indiaOutline') {
+      map.getContainer().style.background = '#9ec7e5';
+      if (geoLayer) map.setView([22.8, 81.2], 4.6, { animate: false });
+      showIndiaSchoolOutline();
+      setStatus('India school-outline mode');
+      return;
+    }
+
+    map.getContainer().style.background = '';
+    activeBaseLayer = type === 'dark' ? darkLayer : satelliteLayer;
+    activeBaseLayer.addTo(map);
+    setStatus(type === 'dark' ? 'Dark fallback map loaded' : 'Satellite map loaded');
+  }
+
+  function toggleTools() {
+    tools.style.display = tools.style.display === 'flex' ? 'none' : 'flex';
+  }
+
+  function showUI() {
+    app.classList.remove('recording');
+  }
+
+  function getFeatureName(feature) {
+    if (!feature || !feature.properties) return 'Unknown';
+    return feature.properties.ADMIN || feature.properties.NAME || feature.properties.name || 'Unknown';
+  }
+
+  function getIso2(feature) {
+    if (!feature || !feature.properties) return null;
+    var props = feature.properties;
+    var directCandidates = [props.ISO_A2, props.iso_a2, props.ISO2, props.iso2, props['ISO3166-1-Alpha-2'], props.iso3166_1_alpha_2];
+    for (var i = 0; i < directCandidates.length; i += 1) {
+      var raw = directCandidates[i];
+      if (!raw || raw === '-99') continue;
+      var normalized = String(raw).trim().toLowerCase();
+      if (/^[a-z]{2}$/.test(normalized)) return normalized;
+    }
+    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || props['ISO3166-1-Alpha-3'] || '').trim().toUpperCase();
+    var a3ToA2 = {
+      IND: 'in', USA: 'us', CHN: 'cn', RUS: 'ru', FRA: 'fr', DEU: 'de', ITA: 'it', GBR: 'gb', BRA: 'br', JPN: 'jp', PAK: 'pk',
+      BGD: 'bd', TUR: 'tr', UKR: 'ua', ARG: 'ar', IDN: 'id', NLD: 'nl', POL: 'pl', IRL: 'ie', FIN: 'fi', ESP: 'es', PRT: 'pt',
+      BEL: 'be', CHE: 'ch', AUT: 'at', SWE: 'se', NOR: 'no', DNK: 'dk', GRC: 'gr', ISR: 'il', SAU: 'sa', ARE: 'ae', IRN: 'ir',
+      IRQ: 'iq', AFG: 'af', KOR: 'kr', PRK: 'kp', AUS: 'au', NZL: 'nz', CAN: 'ca', MEX: 'mx', ZAF: 'za', EGY: 'eg', ETH: 'et',
+      NGA: 'ng', KEN: 'ke', VNM: 'vn', THA: 'th', MMR: 'mm', LKA: 'lk', NPL: 'np', BTN: 'bt', MAR: 'ma', DZA: 'dz'
+    };
+    if (a3 && a3ToA2[a3]) return a3ToA2[a3];
+    return null;
+  }
+
+  function getFlagUrl(feature) {
+    var iso2 = getIso2(feature);
+    return iso2 ? 'https://flagcdn.com/w320/' + iso2 + '.png' : null;
+  }
+
+  function clearMarkers() {
+    if (labelMarker) { map.removeLayer(labelMarker); labelMarker = null; }
+    if (flagMarker) { map.removeLayer(flagMarker); flagMarker = null; }
+    if (indiaClaimOverlay) { map.removeLayer(indiaClaimOverlay); indiaClaimOverlay = null; }
+  }
+
+  function clearPaths() {
+    pathLayers.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathHandles.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathLabels.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathLayers = [];
+    pathHandles = [];
+    pathLabels = [];
+    setStatus('All arrows and missile paths cleared');
+  }
+
+  function stopAnimation() {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
+  }
+
+  function resetLayerStyles() {
+    stopAnimation();
+    if (!geoLayer) return;
+    geoLayer.eachLayer(function (layer) {
+      layer.setStyle({ color: '#ffffff', weight: 0.7, fillOpacity: 0, fillColor: '#ffffff', opacity: 1 });
+      if (layer._path) {
+        layer._path.removeAttribute('fill');
+        layer._path.style.fill = 'transparent';
+        layer._path.style.fillOpacity = '0';
+        layer._path.style.filter = 'none';
+      }
+    });
+  }
+
+  function getOrCreateDefsRoot() {
+    var overlaySvg = map.getPanes().overlayPane.querySelector('svg');
+    var hostSvg = svgFallbackHost.querySelector('svg');
+    var svg = overlaySvg || hostSvg;
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '0');
+      svg.setAttribute('height', '0');
+      svgFallbackHost.appendChild(svg);
+    }
+    var defs = svg.querySelector('defs');
+    if (!defs) {
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      svg.appendChild(defs);
+    }
+    return defs;
+  }
+
+  function setAttrs(node, attrs) {
+    Object.keys(attrs).forEach(function (key) { node.setAttribute(key, attrs[key]); });
+  }
+
+  function createSvgNode(name, attrs) {
+    var node = document.createElementNS('http://www.w3.org/2000/svg', name);
+    if (attrs) setAttrs(node, attrs);
+    return node;
+  }
+
+  function createFlagPattern(patternId, iso2) {
+    var defs = getOrCreateDefsRoot();
+    var existing = document.getElementById(patternId);
+    if (existing) {
+      existing.innerHTML = '';
+      return buildFlag(existing, iso2);
+    }
+    var pattern = createSvgNode('pattern', {
+      id: patternId,
+      patternUnits: 'objectBoundingBox',
+      patternContentUnits: 'objectBoundingBox',
+      x: '0',
+      y: '0',
+      width: '1',
+      height: '1'
+    });
+    defs.appendChild(pattern);
+    return buildFlag(pattern, iso2);
+  }
+
+  function buildFlag(pattern, iso2) {
+    function rect(x, y, w, h, fill) {
+      pattern.appendChild(createSvgNode('rect', { x: x, y: y, width: w, height: h, fill: fill }));
+    }
+    function circle(cx, cy, r, fill, extra) {
+      var attrs = { cx: cx, cy: cy, r: r, fill: fill };
+      if (extra) Object.keys(extra).forEach(function (k) { attrs[k] = extra[k]; });
+      pattern.appendChild(createSvgNode('circle', attrs));
+    }
+    function line(x1, y1, x2, y2, stroke, width) {
+      pattern.appendChild(createSvgNode('line', {
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        stroke: stroke,
+        'stroke-width': width,
+        'stroke-linecap': 'round'
+      }));
+    }
+
+    if (iso2 === 'in') {
+      rect(0, 0, 1, 0.3334, '#FF9933');
+      rect(0, 0.3334, 1, 0.3332, '#FFFFFF');
+      rect(0, 0.6666, 1, 0.3334, '#138808');
+      circle(0.5, 0.5, 0.12, 'none', { stroke: '#000080', 'stroke-width': 0.018 });
+      circle(0.5, 0.5, 0.012, '#000080');
+      for (var i = 0; i < 24; i += 1) {
+        var angle = (Math.PI * 2 * i) / 24 - Math.PI / 2;
+        line(0.5, 0.5, 0.5 + 0.12 * Math.cos(angle), 0.5 + 0.12 * Math.sin(angle), '#000080', 0.01);
+      }
+      return pattern;
+    }
+
+    if (iso2 && iso2.length === 2) {
+      var img = createSvgNode('image', {
+        href: 'https://flagcdn.com/' + iso2 + '.svg',
+        x: '0',
+        y: '0',
+        width: '1',
+        height: '1',
+        preserveAspectRatio: 'none'
+      });
+      pattern.appendChild(img);
+      return pattern;
+    }
+
+    rect(0, 0, 1, 0.3334, '#2563eb');
+    rect(0, 0.3334, 1, 0.3332, '#ffffff');
+    rect(0, 0.6666, 1, 0.3334, '#dc2626');
+    return pattern;
+  }
+
+  function getFillOffsetKey(feature) {
+    return 'flag-fill-offset-' + (getIso2(feature) || 'generic');
+  }
+
+  function getStoredFillOffset(feature) {
+    try {
+      var raw = localStorage.getItem(getFillOffsetKey(feature));
+      if (!raw) return { x: 0, y: 0 };
+      var parsed = JSON.parse(raw);
+      return { x: Number(parsed.x) || 0, y: Number(parsed.y) || 0 };
+    } catch (e) {
+      return { x: 0, y: 0 };
+    }
+  }
+
+  function saveFillOffset(feature, offset) {
+    localStorage.setItem(getFillOffsetKey(feature), JSON.stringify({ x: Number(offset.x) || 0, y: Number(offset.y) || 0 }));
+  }
+
+  function applyPatternOffset(pattern, offset) {
+    if (!pattern) return;
+    pattern.setAttribute('x', String(Number(offset.x) || 0));
+    pattern.setAttribute('y', String(Number(offset.y) || 0));
+  }
+
+  function applyProceduralFlagFill(layer, feature) {
+    if (!layer || !layer._path) return false;
+    var iso2 = getIso2(feature) || 'generic';
+    var patternId = 'flag-fill-' + iso2;
+    var pattern = createFlagPattern(patternId, iso2);
+    if (!pattern) return false;
+    applyPatternOffset(pattern, getStoredFillOffset(feature));
+    layer._path.setAttribute('fill', 'url(#' + patternId + ')');
+    layer._path.style.fill = 'url(#' + patternId + ')';
+    layer._path.style.fillOpacity = String(Number(fadeSliderInput.value));
+    return true;
+  }
+
+  function animateSelectedLayer() {
+    stopAnimation();
+    if (!selectedLayer || !selectedLayer._path) return;
+    var start = null;
+    function tick(ts) {
+      if (!start) start = ts;
+      if (!selectedLayer || !selectedLayer._path) return;
+      var progress = (ts - start) / 1000;
+      var wave = 0.45 + ((Math.sin(progress * 4) + 1) / 2) * 0.35;
+      selectedLayer._path.style.fillOpacity = String(wave);
+      animationFrame = requestAnimationFrame(tick);
+    }
+    animationFrame = requestAnimationFrame(tick);
+  }
+
+  function getVisualCenter(layer) {
+    var latlngs = layer.getLatLngs();
+    if (!latlngs || !latlngs.length) return layer.getBounds().getCenter();
+    function flatten(input, out) {
+      for (var i = 0; i < input.length; i += 1) {
+        if (Array.isArray(input[i])) flatten(input[i], out);
+        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') out.push(input[i]);
+      }
+    }
+    var points = [];
+    flatten(latlngs, points);
+    if (!points.length) return layer.getBounds().getCenter();
+    var sumLat = 0;
+    var sumLng = 0;
+    for (var j = 0; j < points.length; j += 1) {
+      sumLat += points[j].lat;
+      sumLng += points[j].lng;
+    }
+    return L.latLng(sumLat / points.length, sumLng / points.length);
+  }
+
+  function selectCountry(feature, layer) {
+    if (!feature || !layer) return;
+    selectedLayer = layer;
+    selectedFeature = feature;
+    var bounds = layer.getBounds();
+    if (bounds && bounds.isValid && bounds.isValid()) {
+      map.flyToBounds(bounds, { duration: 1.5, padding: [60, 60] });
+    }
+    setTimeout(function () { applyHighlight(layer, feature); }, 220);
+  }
+
+  function addFlag(feature, layer) {
+    if (!flagToggle.checked) return;
+    var flagUrl = getFlagUrl(feature);
+    if (!flagUrl) return;
+    var center = layer.getBounds().getCenter();
+    flagMarker = L.marker([center.lat + 2, center.lng], {
+      icon: L.divIcon({ className: '', html: '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:2px;box-shadow:0 2px 10px rgba(0,0,0,.35);"><img src="' + flagUrl + '" alt="flag" style="width:34px;border-radius:3px;display:block;"></div>' })
+    }).addTo(map);
+  }
+
+  function addLabel(feature, layer) {
+    clearMarkers();
+    if (labelToggle.checked) {
+      var center = layer.getBounds().getCenter();
+      labelMarker = L.marker(L.latLng(center.lat - 4, center.lng), {
+        interactive: false,
+        icon: L.divIcon({ className: 'country-label', html: getFeatureName(feature), iconSize: [0, 0], iconAnchor: [0, 0] })
+      }).addTo(map);
+    }
+    addFlag(feature, layer);
+  }
+
+  function applyHighlight(layer, feature) {
+    if (!geoLayer || !layer || !feature) return;
+    var color = borderColorInput.value;
+    var size = Number(borderSizeInput.value);
+    var opacity = Number(fadeSliderInput.value);
+    var fillMode = fillModeSelect.value;
+    resetLayerStyles();
+    clearMarkers();
+    layer.setStyle({ color: color, weight: size, fillColor: color, fillOpacity: opacity, opacity: 1 });
+    addLabel(feature, layer);
+    if (fillMode === 'solid') {
+      applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
+      setStatus(getFeatureName(feature) + ' selected');
+      return;
+    }
+    if (!applyProceduralFlagFill(layer, feature)) {
+      layer.setStyle({ fillColor: color, fillOpacity: opacity });
+      applyIndiaClaimOverlay(feature, 'solid', color, size, opacity);
+      setStatus('Flag fill unavailable for ' + getFeatureName(feature) + '. Using solid color');
+      return;
+    }
+    applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
+    if (fillMode === 'pulseFlag') animateSelectedLayer();
+    setStatus(getFeatureName(feature) + ' selected');
+  }
+
+  function applyIndiaClaimOverlay(feature, fillMode, color, size, opacity) {
+    if (!feature || getIso2(feature) !== 'in') return;
+
+    var aksaiChinCoords = [
+      [35.65, 78.05],
+      [35.95, 79.10],
+      [35.70, 80.65],
+      [35.20, 81.65],
+      [34.75, 80.95],
+      [34.55, 79.85],
+      [34.70, 78.65],
+      [35.05, 78.00]
+    ];
+
+    indiaClaimOverlay = L.polygon(aksaiChinCoords, {
+      color: color,
+      weight: size,
+      fillColor: color,
+      fillOpacity: opacity,
+      interactive: false,
+      smoothFactor: 0
+    }).addTo(map);
+
+    if (fillMode !== 'solid' && indiaClaimOverlay._path) {
+      var iso2 = 'in';
+      var patternId = 'flag-fill-' + iso2;
+      var pattern = createFlagPattern(patternId, iso2);
+      if (pattern) {
+        applyPatternOffset(pattern, getStoredFillOffset(feature));
+        indiaClaimOverlay._path.setAttribute('fill', 'url(#' + patternId + ')');
+        indiaClaimOverlay._path.style.fill = 'url(#' + patternId + ')';
+        indiaClaimOverlay._path.style.fillOpacity = String(opacity);
+      }
+    }
+  }
+
+  function clearSelection() {
+    resetLayerStyles();
+    clearMarkers();
+    selectedLayer = null;
+    selectedFeature = null;
+    setStatus('Selection cleared');
+  }
+
+  function resetMap() {
+    resetLayerStyles();
+    clearMarkers();
+    clearPaths();
+    selectedLayer = null;
+    selectedFeature = null;
+    map.flyTo([20, 0], 3);
+    setStatus('Map reset');
+  }
+
+  var currentPreviewUrl = '';
+  var currentPreviewFilename = '';
+
+  function closePreviewModal() {
+    previewModal.style.display = 'none';
+    previewBody.innerHTML = '';
+    currentPreviewUrl = '';
+    currentPreviewFilename = '';
+    previewOpenLink.removeAttribute('href');
+  }
+
+  function openPreview(url, filename, kind) {
+    previewTitle.textContent = filename;
+    previewBody.innerHTML = '';
+    currentPreviewUrl = url;
+    currentPreviewFilename = filename;
+
+    if (kind === 'png') {
+      var img = document.createElement('img');
+      img.src = url;
+      previewBody.appendChild(img);
+    } else {
+      var iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.style.width = '100%';
+      iframe.style.height = '70vh';
+      previewBody.appendChild(iframe);
+    }
+
+    previewOpenLink.href = url;
+    previewModal.style.display = 'flex';
+  }
+
+  function triggerDownload(url, filename) {
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function triggerBlobDownloadFromUrl(url, filename) {
+    fetch(url)
+      .then(function (response) {
+        return response.blob();
+      })
+      .then(function (blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        triggerDownload(blobUrl, filename);
+        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 1000);
+        setStatus('Download started');
+      })
+      .catch(function (error) {
+        console.error(error);
+        setStatus('Download failed. Use Open and save manually.');
+      });
+  }
+
+  function buildExportSvgString(includeFlagFill) {
+    if (!selectedLayer || !selectedFeature || !selectedLayer._path) return null;
+
+    var livePath = selectedLayer._path;
+    var d = livePath.getAttribute('d');
+    if (!d) return null;
+
+    var bbox = livePath.getBBox();
+    if (!bbox || !isFinite(bbox.width) || !isFinite(bbox.height) || bbox.width <= 0 || bbox.height <= 0) return null;
+
+    var padding = 24;
+    var exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    exportSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    exportSvg.setAttribute('width', '2048');
+    exportSvg.setAttribute('height', '2048');
+    exportSvg.setAttribute('viewBox', [bbox.x - padding, bbox.y - padding, bbox.width + padding * 2, bbox.height + padding * 2].join(' '));
+
+    var defsRoot = getOrCreateDefsRoot();
+    var iso2 = getIso2(selectedFeature) || 'generic';
+    var patternId = 'flag-fill-' + iso2;
+
+    if (includeFlagFill && fillModeSelect.value !== 'solid') {
+      createFlagPattern(patternId, iso2);
+      var patternNode = document.getElementById(patternId);
+      if (patternNode) {
+        var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defs.appendChild(patternNode.cloneNode(true));
+        exportSvg.appendChild(defs);
+      }
+    }
+
+    var exportPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    exportPath.setAttribute('d', d);
+    exportPath.setAttribute('stroke', borderColorInput.value);
+    exportPath.setAttribute('stroke-width', String(Number(borderSizeInput.value)));
+    exportPath.setAttribute('stroke-linejoin', 'round');
+    exportPath.setAttribute('stroke-linecap', 'round');
+    exportPath.setAttribute('fill-opacity', String(Number(fadeSliderInput.value)));
+
+    if (includeFlagFill && fillModeSelect.value !== 'solid' && document.getElementById(patternId)) {
+      exportPath.setAttribute('fill', 'url(#' + patternId + ')');
+    } else {
+      exportPath.setAttribute('fill', borderColorInput.value);
+    }
+
+    exportSvg.appendChild(exportPath);
+    return new XMLSerializer().serializeToString(exportSvg);
+  }
+
+  function exportSelectedPng(includeFlagFill) {
+    var svgString = buildExportSvgString(includeFlagFill);
+    if (!svgString) {
+      setStatus('Select a country first');
+      return;
+    }
+
+    var img = new Image();
+    img.decoding = 'sync';
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 2048;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 2048, 2048);
+      ctx.drawImage(img, 0, 0, 2048, 2048);
+
+      var pngUrl;
+      try {
+        pngUrl = canvas.toDataURL('image/png');
+      } catch (e) {
+        console.error(e);
+        setStatus('PNG export failed');
+        return;
+      }
+
+      var suffix = includeFlagFill ? '_with_flag_hd.png' : '_without_flag_hd.png';
+      var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + suffix;
+      openPreview(pngUrl, filename, 'png');
+      setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
+      setStatus(includeFlagFill ? 'PNG with flag ready' : 'PNG without flag ready');
+    };
+
+    img.onerror = function (err) {
+      console.error(err);
+      setStatus('PNG export failed');
+    };
+
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+  }
+
+  function recordMode() {
+    app.classList.add('recording');
+  }
+
+  function makeHandle(latlng, className) {
+    return L.marker(latlng, { draggable: true, icon: L.divIcon({ className: className, html: '', iconSize: [14, 14], iconAnchor: [7, 7] }) }).addTo(map);
+  }
+
+  function createArrowDecorator(start, end) {
+    var p1 = map.latLngToContainerPoint(start);
+    var p2 = map.latLngToContainerPoint(end);
+    var dx = p2.x - p1.x;
+    var dy = p2.y - p1.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var ux = dx / len;
+    var uy = dy / len;
+    var base = L.point(p2.x - ux * 20, p2.y - uy * 20);
+    var left = L.point(base.x - uy * 10, base.y + ux * 10);
+    var right = L.point(base.x + uy * 10, base.y - ux * 10);
+    return [map.containerPointToLatLng(left), end, map.containerPointToLatLng(right)];
+  }
+
+  function arcPoints(start, end, lift) {
+    var p1 = map.latLngToContainerPoint(start);
+    var p2 = map.latLngToContainerPoint(end);
+    var mid = L.point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2 - lift);
+    var pts = [];
+    for (var t = 0; t <= 1.001; t += 0.04) {
+      var x = (1 - t) * (1 - t) * p1.x + 2 * (1 - t) * t * mid.x + t * t * p2.x;
+      var y = (1 - t) * (1 - t) * p1.y + 2 * (1 - t) * t * mid.y + t * t * p2.y;
+      pts.push(map.containerPointToLatLng(L.point(x, y)));
+    }
+    return pts;
+  }
+
+  function addPathLabel(latlng, text, className) {
+    var marker = L.marker(latlng, {
+      interactive: false,
+      icon: L.divIcon({ className: className || 'path-label', html: text, iconSize: [0, 0], iconAnchor: [0, 0] })
+    }).addTo(map);
+    pathLabels.push(marker);
+    return marker;
+  }
+
+  function serializeLatLng(latlng) {
+    return { lat: Number(latlng.lat), lng: Number(latlng.lng) };
+  }
+
+  function deserializeLatLng(obj) {
+    return L.latLng(obj.lat, obj.lng);
+  }
+
+  function getLatestArrowData(type) {
+    for (var i = pathLayers.length - 1; i >= 0; i -= 1) {
+      var layer = pathLayers[i];
+      if (layer && layer.__kind === type && layer.__startHandle && layer.__endHandle) {
+        return {
+          start: serializeLatLng(layer.__startHandle.getLatLng()),
+          end: serializeLatLng(layer.__endHandle.getLatLng())
+        };
+      }
+    }
+    return null;
+  }
+
+  function rebuildWarArrow(data) {
+    var start = deserializeLatLng(data.start);
+    var end = deserializeLatLng(data.end);
+    var mainLine = L.polyline([start, end], { color: '#ef4444', weight: 5, opacity: 0.95 }).addTo(map);
+    var arrowHead = L.polygon(createArrowDecorator(start, end), { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.95, weight: 1 }).addTo(map);
+    pathLayers.push(mainLine, arrowHead);
+  }
+
+  function rebuildMissilePath(data) {
+    var start = deserializeLatLng(data.start);
+    var end = deserializeLatLng(data.end);
+    var pts = arcPoints(start, end, 90);
+    var trail = L.polyline(pts, { color: '#f59e0b', weight: 4, opacity: 0.95, dashArray: '10 8' }).addTo(map);
+    var arrowHead = L.polygon(createArrowDecorator(pts[pts.length - 2], end), { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.95, weight: 1 }).addTo(map);
+    pathLayers.push(trail, arrowHead);
+  }
+
+  function addWarArrow() {
+    if (!selectedLayer) { setStatus('Select a country first, then add war arrow'); return; }
+    var start = getVisualCenter(selectedLayer);
+    var end = L.latLng(start.lat + 6, start.lng + 10);
+    var mainLine = L.polyline([start, end], { color: '#ef4444', weight: 5, opacity: 0.95 }).addTo(map);
+    var arrowHead = L.polygon(createArrowDecorator(start, end), { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.95, weight: 1 }).addTo(map);
+    var startHandle = makeHandle(start, 'arrow-handle');
+    var endHandle = makeHandle(end, 'arrow-handle');
+    var label = addPathLabel(L.latLng((start.lat + end.lat) / 2, (start.lng + end.lng) / 2), 'WAR ARROW');
+    function redraw() {
+      var s = startHandle.getLatLng();
+      var e = endHandle.getLatLng();
+      mainLine.setLatLngs([s, e]);
+      arrowHead.setLatLngs(createArrowDecorator(s, e));
+      label.setLatLng(L.latLng((s.lat + e.lat) / 2, (s.lng + e.lng) / 2));
+    }
+    startHandle.on('drag', redraw);
+    endHandle.on('drag', redraw);
+    mainLine.__kind = 'war';
+    mainLine.__startHandle = startHandle;
+    mainLine.__endHandle = endHandle;
+    pathLayers.push(mainLine, arrowHead);
+    pathHandles.push(startHandle, endHandle);
+    setStatus('War arrow added. Drag endpoints to adjust');
+  }
+
+  function addMissilePath() {
+    if (!selectedLayer) { setStatus('Select a country first, then add missile path'); return; }
+    var start = getVisualCenter(selectedLayer);
+    var end = L.latLng(start.lat + 8, start.lng + 14);
+    var trail = L.polyline(arcPoints(start, end, 90), { color: '#f59e0b', weight: 4, opacity: 0.95, dashArray: '10 8' }).addTo(map);
+    var arc = arcPoints(start, end, 90);
+    var arrowHead = L.polygon(createArrowDecorator(arc[arc.length - 2], end), { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.95, weight: 1 }).addTo(map);
+    var startHandle = makeHandle(start, 'missile-handle');
+    var endHandle = makeHandle(end, 'missile-handle');
+    var label = addPathLabel(L.latLng((start.lat + end.lat) / 2 + 1, (start.lng + end.lng) / 2), 'MISSILE');
+    function redraw() {
+      var s = startHandle.getLatLng();
+      var e = endHandle.getLatLng();
+      var pts = arcPoints(s, e, 90);
+      trail.setLatLngs(pts);
+      arrowHead.setLatLngs(createArrowDecorator(pts[pts.length - 2], e));
+      label.setLatLng(L.latLng((s.lat + e.lat) / 2 + 1, (s.lng + e.lng) / 2));
+    }
+    startHandle.on('drag', redraw);
+    endHandle.on('drag', redraw);
+    trail.__kind = 'missile';
+    trail.__startHandle = startHandle;
+    trail.__endHandle = endHandle;
+    pathLayers.push(trail, arrowHead);
+    pathHandles.push(startHandle, endHandle);
+    setStatus('Missile path added. Drag endpoints to adjust');
+  }
+
+  function findCountryLayer(query) {
+    if (!geoLayer || !query) return null;
+    var normalized = String(query).trim().toLowerCase();
+    if (!normalized) return null;
+    var found = null;
+    geoLayer.eachLayer(function (layer) {
+      if (found) return;
+      var name = getFeatureName(layer.feature).toLowerCase();
+      if (name.includes(normalized)) found = layer;
+    });
+    return found;
+  }
+
+  function startFillDrag(e) {
+    if (!dragFillToggle.checked) return;
+    if (!selectedLayer || !selectedFeature || fillModeSelect.value === 'solid') return;
+    isDraggingFill = true;
+    dragStartPoint = e.containerPoint;
+    dragStartOffset = getStoredFillOffset(selectedFeature);
+    map.dragging.disable();
+    setStatus('Dragging full flag fill...');
+  }
+
+  function moveFillDrag(e) {
+    if (!isDraggingFill || !selectedFeature || !selectedLayer) return;
+    var dx = (e.containerPoint.x - dragStartPoint.x) / Math.max(1, map.getSize().x);
+    var dy = (e.containerPoint.y - dragStartPoint.y) / Math.max(1, map.getSize().y);
+    saveFillOffset(selectedFeature, { x: dragStartOffset.x + dx, y: dragStartOffset.y + dy });
+    applyHighlight(selectedLayer, selectedFeature);
+  }
+
+  function endFillDrag() {
+    if (!isDraggingFill) return;
+    isDraggingFill = false;
+    map.dragging.enable();
+    setStatus('Flag fill position saved for ' + getFeatureName(selectedFeature));
+  }
+
+  satelliteLayer.on('tileerror', function () {
+    if (basemapSelect.value === 'satellite') {
+      basemapSelect.value = 'dark';
+      useBasemap('dark');
+      setStatus('Satellite failed. Switched to dark fallback map');
+    }
+  });
+
+  previewCloseBtn.addEventListener('click', closePreviewModal);
+  previewDownloadBtn.addEventListener('click', function () {
+    if (!currentPreviewUrl || !currentPreviewFilename) {
+      setStatus('Nothing to download');
+      return;
+    }
+    triggerBlobDownloadFromUrl(currentPreviewUrl, currentPreviewFilename);
+  });
+  previewModal.addEventListener('click', function (e) {
+    if (e.target === previewModal) closePreviewModal();
+  });
+  fab.addEventListener('click', toggleTools);
+  basemapSelect.addEventListener('change', function () { useBasemap(this.value); });
+  recordBtn.addEventListener('click', recordMode);
+  showUiBtn.addEventListener('click', showUI);
+  warArrowBtn.addEventListener('click', addWarArrow);
+  missileBtn.addEventListener('click', addMissilePath);
+  clearPathsBtn.addEventListener('click', clearPaths);
+  exportNoFlagBtn.addEventListener('click', function () { exportSelectedPng(false); });
+  exportWithFlagBtn.addEventListener('click', function () { exportSelectedPng(true); });
+  clearSelectionBtn.addEventListener('click', clearSelection);
+  resetBtn.addEventListener('click', resetMap);
+
+  function runCountrySearch(query) {
+    var normalized = String(query || '').trim().toLowerCase();
+    if (!normalized) return;
+
+    if (basemapSelect.value === 'indiaOutline' && (normalized === 'india' || normalized === 'bharat')) {
+      map.setView([22.8, 81.2], 4.6, { animate: true });
+      setStatus('India outline focused');
+      return;
+    }
+
+    var layer = findCountryLayer(query);
+    if (layer) {
+      selectCountry(layer.feature, layer);
+    } else {
+      setStatus('Country not found');
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      runCountrySearch(this.value);
+      if (quickSearchInput) quickSearchInput.value = this.value;
+    });
+  }
+
+  quickSearchInput.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    runCountrySearch(this.value);
+  });
+
+  quickSearchBtn.addEventListener('click', function () {
+    runCountrySearch(quickSearchInput.value);
+  });
+
+  ['fillModeSelect', 'borderColor', 'borderSize', 'fadeSlider', 'labelToggle', 'flagToggle', 'dragFillToggle'].forEach(function (id) {
+    var eventName = (id === 'borderColor' || id === 'borderSize' || id === 'fadeSlider') ? 'input' : 'change';
+    document.getElementById(id).addEventListener(eventName, function () {
+      if (selectedLayer && selectedFeature) applyHighlight(selectedLayer, selectedFeature);
+    });
+  });
+
+  map.on('mousedown', startFillDrag);
+  map.on('mousemove', moveFillDrag);
+  map.on('mouseup', endFillDrag);
+
+  function loadCountryBoundaries() {
+    var sources = [
+      'https://cdn.jsdelivr.net/gh/datasets/geo-countries@master/data/countries.geojson',
+      'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+    ];
+
+    function renderGeo(data) {
+      if (geoLayer) {
+        map.removeLayer(geoLayer);
+      }
+      geoLayer = L.geoJSON(data, {
+        renderer: L.svg(),
+        style: { color: '#ffffff', weight: 0.7, fillOpacity: 0, fillColor: '#ffffff', opacity: 1 },
+        onEachFeature: function (feature, layer) {
+          layer.on('click', function () { selectCountry(feature, layer); });
+        }
+      }).addTo(map);
+      setStatus('All countries loaded');
+    }
+
+    function tryLoad(index) {
+      if (index >= sources.length) {
+        console.error('All boundary sources failed');
+        setStatus('Country boundaries failed to load');
+        return;
+      }
+
+      fetch(sources[index])
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          renderGeo(data);
+        })
+        .catch(function (e) {
+          console.warn('Boundary source failed:', sources[index], e);
+          tryLoad(index + 1);
+        });
+    }
+
+    tryLoad(0);
+  }
+
+  loadCountryBoundaries();
+
+  useBasemap('satellite');
+
+  function runTests() {
+    console.assert(getIso2({ properties: { ISO_A2: 'IN' } }) === 'in', 'ISO_A2 should normalize to lowercase');
+    console.assert(getIso2({ properties: { ISO_A2: '-99', ISO_A3: 'IND' } }) === 'in', 'ISO_A3 fallback should work');
+    console.assert(getIso2({ properties: { ISO_A2: '-99' } }) === null, 'Invalid ISO_A2 should return null');
+    console.assert(getFeatureName({ properties: { ADMIN: 'India' } }) === 'India', 'Should prefer ADMIN for name');
+    console.assert(getFeatureName({ properties: {} }) === 'Unknown', 'Missing name should return Unknown');
+    console.assert(getFlagUrl({ properties: { ISO_A2: 'US' } }).indexOf('/us.png') !== -1, 'Flag URL should use lowercase code');
+    console.assert(findCountryLayer('') === null, 'Empty search should return null');
+    console.assert(getIso2({ properties: { ISO2: 'JP' } }) === 'jp', 'ISO2 fallback should work');
+
+    var indiaPattern = createFlagPattern('test-pattern-india-detail', 'in');
+    console.assert(Boolean(indiaPattern), 'India flag pattern should be created');
+    console.assert(indiaPattern.querySelectorAll('line').length === 24, 'Ashok Chakra should have 24 spokes');
+    console.assert(indiaPattern.querySelectorAll('circle').length >= 2, 'Ashok Chakra should include outer ring and center');
+
+    var pakistanPattern = createFlagPattern('test-pattern-pakistan-detail', 'pk');
+    console.assert(Boolean(pakistanPattern), 'Pakistan flag pattern should be created');
+    console.assert(pakistanPattern.querySelectorAll('polygon').length >= 1, 'Pakistan flag should include a star');
+    console.assert(pakistanPattern.querySelectorAll('circle').length >= 2, 'Pakistan flag should include a crescent');
+
+    var genericPattern = createFlagPattern('test-pattern-generic', 'zz');
+    console.assert(Boolean(genericPattern), 'Generic fallback pattern should be created');
+
+    var testPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    var testLayer = { _path: testPath };
+    console.assert(applyProceduralFlagFill(testLayer, { properties: { ISO_A2: 'IN' } }) === true, 'Flag fill should apply on SVG path');
+    console.assert(testPath.getAttribute('fill') === 'url(#flag-fill-in)', 'Flag fill should target the India pattern');
+
+    console.assert(getOrCreateDefsRoot() !== null, 'Defs root should always exist');
+    console.assert(getStoredFillOffset({ properties: { ISO_A2: 'IN' } }).x === 0, 'Default fill offset x should be zero');
+    saveFillOffset({ properties: { ISO_A2: 'IN' } }, { x: 0.12, y: -0.08 });
+    var savedOffset = getStoredFillOffset({ properties: { ISO_A2: 'IN' } });
+    console.assert(Math.abs(savedOffset.x - 0.12) < 0.0001, 'Saved fill offset x should persist');
+
+    var fakeLayer = {
+      getLatLngs: function () { return [[{ lat: 10, lng: 20 }, { lat: 20, lng: 20 }, { lat: 20, lng: 30 }]]; },
+      getBounds: function () { return { getCenter: function () { return L.latLng(15, 25); } }; }
+    };
+    var visualCenter = getVisualCenter(fakeLayer);
+    console.assert(Math.abs(visualCenter.lat - 16.6666667) < 0.01, 'Visual center should use polygon average latitude');
+    console.assert(Math.abs(visualCenter.lng - 23.3333333) < 0.01, 'Visual center should use polygon average longitude');
+
+    var arrowTest = createArrowDecorator(L.latLng(0, 0), L.latLng(1, 1));
+    console.assert(Array.isArray(arrowTest) && arrowTest.length === 3, 'Arrow decorator should return 3 points');
+    var missileTest = arcPoints(L.latLng(0, 0), L.latLng(2, 2), 40);
+    console.assert(Array.isArray(missileTest) && missileTest.length > 10, 'Missile arc should generate multiple points');
+
+    var svgString = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    console.assert(svgString.indexOf('<svg') === 0, 'SVG export string should start with svg tag');
+    console.assert(typeof closePreviewModal === 'function', 'Preview modal close function should exist');
+    console.assert(typeof openPreview === 'function', 'Preview helper should exist');
+    console.assert(typeof triggerBlobDownloadFromUrl === 'function', 'Blob download helper should exist');
+    console.assert(typeof clearSelection === 'function', 'Clear selection helper should exist');
+    console.assert(typeof applyIndiaClaimOverlay === 'function', 'India claim overlay helper should exist');
+    console.assert(typeof showIndiaSchoolOutline === 'function', 'India school outline helper should exist');
+    
+    var noFlagSvg = buildExportSvgString(false);
+    console.assert(typeof noFlagSvg === 'string' || noFlagSvg === null, 'No-flag export SVG should be string or null');
+    var withFlagSvg = buildExportSvgString(true);
+    console.assert(typeof withFlagSvg === 'string' || withFlagSvg === null, 'With-flag export SVG should be string or null');
+  }
+
+  runTests();
+}());
 </script>
-
 </body>
-
 </html>
