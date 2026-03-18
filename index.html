@@ -313,6 +313,20 @@ html, body {
   font-size: 12px;
   padding: 0 14px 14px;
 }
+.range-value {
+  font-size: 11px;
+  color: rgba(255,255,255,.65);
+  margin-top: -4px;
+}
+.export-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,.62);
+  line-height: 1.4;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
 </style>
 </head>
 <body>
@@ -341,6 +355,10 @@ html, body {
     <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Opacity</div>
     <input type="range" min="0" max="0.8" step="0.05" value="0.35" id="fadeSlider" />
 
+    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Flag Marker Size</div>
+    <input type="range" min="20" max="120" step="2" value="34" id="flagSize" />
+    <div class="range-value" id="flagSizeValue">34px</div>
+
     <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Fill Mode</div>
     <select id="fillModeSelect">
       <option value="solid">Solid Color</option>
@@ -366,8 +384,12 @@ html, body {
       </label>
       <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
         <input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
-        <span>Drag Full Flag Fill</span>
+        <span>Drag Full Flag Fill (touch-hold on phone)</span>
       </label>
+    </div>
+
+    <div class="export-hint">
+      9:16 export ab crop nahi karega. Pure map ko portrait frame me fit karega, isliye details cut nahi hongi aur output HD/4K rahega.
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -416,6 +438,8 @@ html, body {
   var borderColorInput = document.getElementById('borderColor');
   var borderSizeInput = document.getElementById('borderSize');
   var fadeSliderInput = document.getElementById('fadeSlider');
+  var flagSizeInput = document.getElementById('flagSize');
+  var flagSizeValue = document.getElementById('flagSizeValue');
   var fillModeSelect = document.getElementById('fillModeSelect');
   var basemapSelect = document.getElementById('basemapSelect');
   var labelToggle = document.getElementById('labelToggle');
@@ -465,17 +489,34 @@ html, body {
   var flagMarker = null;
   var indiaClaimOverlay = null;
   var animationFrame = null;
-  var dragStartPoint = null;
-  var dragStartOffset = null;
   var isDraggingFill = false;
   var pathLayers = [];
   var pathHandles = [];
   var pathLabels = [];
   var currentPreviewUrl = '';
   var currentPreviewFilename = '';
+  var flagFillOffsets = {};
+  var currentPointerDown = null;
+  var touchHoldTimer = null;
+  var touchDragStarted = false;
 
   function setStatus(message) {
     statusPill.textContent = message;
+  }
+
+  function updateFlagSizeLabel() {
+    flagSizeValue.textContent = flagSizeInput.value + 'px';
+  }
+
+  function getSelectedFeatureKey(feature) {
+    if (!feature) return 'default';
+    return (getIso2(feature) || getFeatureName(feature) || 'default').toLowerCase();
+  }
+
+  function getCurrentFillOffset(feature) {
+    var key = getSelectedFeatureKey(feature);
+    if (!flagFillOffsets[key]) flagFillOffsets[key] = { x: 0, y: 0 };
+    return flagFillOffsets[key];
   }
 
   function hideIndiaSchoolOutline() {
@@ -550,9 +591,14 @@ html, body {
     return a3ToA2[a3] || null;
   }
 
-  function getFlagUrl(feature) {
+  function getFlagPngUrl(feature) {
     var iso2 = getIso2(feature);
     return iso2 ? ('https://flagcdn.com/w640/' + iso2 + '.png') : null;
+  }
+
+  function getFlagSvgUrl(feature) {
+    var iso2 = getIso2(feature);
+    return iso2 ? ('https://flagcdn.com/' + iso2 + '.svg') : null;
   }
 
   function clearMarkers() {
@@ -592,43 +638,60 @@ html, body {
     });
   }
 
-  function createSvgPatternForMap(layer, feature) {
-    if (!layer || !layer._path) return false;
-    var iso2 = getIso2(feature);
-    if (!iso2) return false;
-
+  function ensureSvgDefs() {
     var svg = map.getPanes().overlayPane.querySelector('svg');
-    if (!svg) return false;
+    if (!svg) return null;
     var defs = svg.querySelector('defs');
     if (!defs) {
       defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      svg.appendChild(defs);
+      svg.insertBefore(defs, svg.firstChild);
     }
+    return defs;
+  }
 
-    var patternId = 'flag-fill-' + iso2;
+  function createSvgPatternForMap(layer, feature) {
+    if (!layer || !layer._path) return false;
+    var flagUrl = getFlagSvgUrl(feature);
+    if (!flagUrl) return false;
+
+    var defs = ensureSvgDefs();
+    if (!defs) return false;
+
+    var bbox = layer._path.getBBox();
+    if (!bbox || !isFinite(bbox.width) || !bbox.width || !bbox.height) return false;
+
+    var key = getSelectedFeatureKey(feature);
+    var patternId = 'flag-fill-' + key;
     var existing = document.getElementById(patternId);
     if (existing) existing.remove();
 
+    var offset = getCurrentFillOffset(feature);
+
     var pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
     pattern.setAttribute('id', patternId);
-    pattern.setAttribute('patternUnits', 'objectBoundingBox');
-    pattern.setAttribute('width', '1');
-    pattern.setAttribute('height', '1');
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('patternContentUnits', 'userSpaceOnUse');
+    pattern.setAttribute('x', String(bbox.x + offset.x));
+    pattern.setAttribute('y', String(bbox.y + offset.y));
+    pattern.setAttribute('width', String(bbox.width));
+    pattern.setAttribute('height', String(bbox.height));
 
-    var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'https://flagcdn.com/' + iso2 + '.svg');
-    img.setAttribute('href', 'https://flagcdn.com/' + iso2 + '.svg');
-    img.setAttribute('width', '100%');
-    img.setAttribute('height', '100%');
-    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    var image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    image.setAttribute('x', String(bbox.x + offset.x));
+    image.setAttribute('y', String(bbox.y + offset.y));
+    image.setAttribute('width', String(bbox.width));
+    image.setAttribute('height', String(bbox.height));
+    image.setAttribute('preserveAspectRatio', 'none');
+    image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
+    image.setAttribute('href', flagUrl);
+    image.setAttribute('crossorigin', 'anonymous');
 
-    pattern.appendChild(img);
+    pattern.appendChild(image);
     defs.appendChild(pattern);
 
     layer._path.setAttribute('fill', 'url(#' + patternId + ')');
     layer._path.style.fill = 'url(#' + patternId + ')';
     layer._path.style.fillOpacity = String(Number(fadeSliderInput.value));
-
     return true;
   }
 
@@ -670,6 +733,7 @@ html, body {
     if (!feature || !layer) return;
     selectedLayer = layer;
     selectedFeature = feature;
+    getCurrentFillOffset(feature);
     var bounds = layer.getBounds();
     if (bounds && bounds.isValid && bounds.isValid()) {
       map.flyToBounds(bounds, { duration: 1.5, padding: [60, 60] });
@@ -679,13 +743,17 @@ html, body {
 
   function addFlag(feature, layer) {
     if (!flagToggle.checked) return;
-    var flagUrl = getFlagUrl(feature);
+    var flagUrl = getFlagPngUrl(feature);
     if (!flagUrl) return;
     var center = layer.getBounds().getCenter();
+    var flagSize = Number(flagSizeInput.value);
     flagMarker = L.marker([center.lat + 2, center.lng], {
       icon: L.divIcon({
         className: '',
-        html: '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:2px;box-shadow:0 2px 10px rgba(0,0,0,.35);"><img src="' + flagUrl + '" alt="flag" crossorigin="anonymous" style="width:34px;border-radius:3px;display:block;"></div>'
+        html:
+          '<div style="background:rgba(0,0,0,.7);border-radius:8px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.35);display:inline-flex;">' +
+          '<img src="' + flagUrl + '" alt="flag" crossorigin="anonymous" style="width:' + flagSize + 'px;height:auto;border-radius:4px;display:block;">' +
+          '</div>'
       })
     }).addTo(map);
   }
@@ -844,42 +912,36 @@ html, body {
     });
   }
 
-  function getNestedLatLngGroups(layer) {
-    var latlngs = layer.getLatLngs();
-    if (!latlngs || !latlngs.length) return [];
-
-    function isPoint(v) {
-      return v && typeof v.lat === 'number' && typeof v.lng === 'number';
+  function pointInPolygon(point, vs) {
+    var x = point.x, y = point.y;
+    var inside = false;
+    for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      var xi = vs[i].x, yi = vs[i].y;
+      var xj = vs[j].x, yj = vs[j].y;
+      var intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-9) + xi);
+      if (intersect) inside = !inside;
     }
-
-    function collect(input, out) {
-      if (!Array.isArray(input) || !input.length) return;
-      if (isPoint(input[0])) {
-        out.push(input);
-        return;
-      }
-      for (var i = 0; i < input.length; i += 1) {
-        collect(input[i], out);
-      }
-    }
-
-    var groups = [];
-    collect(latlngs, groups);
-    return groups;
+    return inside;
   }
 
-  function getProjectedExportGeometry() {
-    if (!selectedLayer) return null;
-
-    var groups = getNestedLatLngGroups(selectedLayer);
-    var overlayGroups = [];
-
-    if (selectedFeature && getIso2(selectedFeature) === 'in' && indiaClaimOverlay) {
-      overlayGroups = getNestedLatLngGroups(indiaClaimOverlay);
+  function flattenPoints(input, result) {
+    if (!Array.isArray(input)) return;
+    if (input.length && input[0] && typeof input[0].lat === 'number' && typeof input[0].lng === 'number') {
+      result.push(input);
+      return;
     }
+    for (var i = 0; i < input.length; i += 1) {
+      flattenPoints(input[i], result);
+    }
+  }
 
-    var allGroups = groups.concat(overlayGroups);
-    if (!allGroups.length) return null;
+  function buildProjectedGeometryFromLayer(layer) {
+    var raw = layer.getLatLngs();
+    if (!raw || !raw.length) return { polygons: [], bounds: null };
+
+    function isRing(arr) {
+      return Array.isArray(arr) && arr.length && arr[0] && typeof arr[0].lat === 'number' && typeof arr[0].lng === 'number';
+    }
 
     var bounds = {
       minX: Infinity,
@@ -888,32 +950,93 @@ html, body {
       maxY: -Infinity
     };
 
-    var projectedGroups = allGroups.map(function (ring) {
+    function projectRing(ring) {
       return ring.map(function (latlng) {
         var pt = map.latLngToLayerPoint(latlng);
         bounds.minX = Math.min(bounds.minX, pt.x);
         bounds.minY = Math.min(bounds.minY, pt.y);
         bounds.maxX = Math.max(bounds.maxX, pt.x);
         bounds.maxY = Math.max(bounds.maxY, pt.y);
-        return pt;
+        return { x: pt.x, y: pt.y };
       });
+    }
+
+    var polygons = [];
+
+    if (isRing(raw[0])) {
+      polygons.push([projectRing(raw)]);
+    } else {
+      for (var i = 0; i < raw.length; i += 1) {
+        if (isRing(raw[i])) {
+          polygons.push([projectRing(raw[i])]);
+        } else if (Array.isArray(raw[i])) {
+          var polygonRings = [];
+          for (var j = 0; j < raw[i].length; j += 1) {
+            if (isRing(raw[i][j])) polygonRings.push(projectRing(raw[i][j]));
+          }
+          if (polygonRings.length) polygons.push(polygonRings);
+        }
+      }
+    }
+
+    if (!isFinite(bounds.minX)) return { polygons: [], bounds: null };
+    return { polygons: polygons, bounds: bounds };
+  }
+
+  function mergeProjectedGeometries(geometries) {
+    var polygons = [];
+    var bounds = {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    };
+
+    geometries.forEach(function (geom) {
+      if (!geom || !geom.polygons || !geom.polygons.length || !geom.bounds) return;
+      polygons = polygons.concat(geom.polygons);
+      bounds.minX = Math.min(bounds.minX, geom.bounds.minX);
+      bounds.minY = Math.min(bounds.minY, geom.bounds.minY);
+      bounds.maxX = Math.max(bounds.maxX, geom.bounds.maxX);
+      bounds.maxY = Math.max(bounds.maxY, geom.bounds.maxY);
     });
 
     if (!isFinite(bounds.minX)) return null;
-    return { groups: projectedGroups, bounds: bounds };
+    return { polygons: polygons, bounds: bounds };
   }
 
-  function drawClippedCountry(ctx, groups, offsetX, offsetY) {
+  function drawGeometryPath(ctx, geometry, offsetX, offsetY) {
     ctx.beginPath();
-    groups.forEach(function (ring) {
-      ring.forEach(function (pt, idx) {
-        var x = pt.x - offsetX;
-        var y = pt.y - offsetY;
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    geometry.polygons.forEach(function (polygon) {
+      polygon.forEach(function (ring) {
+        ring.forEach(function (pt, idx) {
+          var x = pt.x - offsetX;
+          var y = pt.y - offsetY;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
       });
-      ctx.closePath();
     });
+  }
+
+  function collectOuterRingsForMask(geometry, offsetX, offsetY) {
+    var outers = [];
+    geometry.polygons.forEach(function (polygon) {
+      if (!polygon.length) return;
+      var ring = polygon[0].map(function (pt) {
+        return { x: pt.x - offsetX, y: pt.y - offsetY };
+      });
+      outers.push(ring);
+    });
+    return outers;
+  }
+
+  function isInsideCountryShape(point, outerRings) {
+    for (var i = 0; i < outerRings.length; i += 1) {
+      if (pointInPolygon(point, outerRings[i])) return true;
+    }
+    return false;
   }
 
   async function exportSelectedPng(exportMode) {
@@ -922,7 +1045,12 @@ html, body {
       return;
     }
 
-    var geometry = getProjectedExportGeometry();
+    var geometries = [buildProjectedGeometryFromLayer(selectedLayer)];
+    if (selectedFeature && getIso2(selectedFeature) === 'in' && indiaClaimOverlay) {
+      geometries.push(buildProjectedGeometryFromLayer(indiaClaimOverlay));
+    }
+
+    var geometry = mergeProjectedGeometries(geometries);
     if (!geometry) {
       setStatus('Export failed');
       return;
@@ -932,24 +1060,26 @@ html, body {
     var bounds = geometry.bounds;
     var width = Math.max(1, bounds.maxX - bounds.minX);
     var height = Math.max(1, bounds.maxY - bounds.minY);
-
-    var baseCanvas = document.createElement('canvas');
-    baseCanvas.width = 2048;
-    baseCanvas.height = 2048;
-    var ctx = baseCanvas.getContext('2d');
-
     var exportWidth = width + padding * 2;
     var exportHeight = height + padding * 2;
-    var scale = Math.min(2048 / exportWidth, 2048 / exportHeight);
+    var maxSide = 2048;
+    var scale = Math.min(maxSide / exportWidth, maxSide / exportHeight, 1.8);
 
-    ctx.save();
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, Math.round(exportWidth * scale));
+    canvas.height = Math.max(2, Math.round(exportHeight * scale));
+    var ctx = canvas.getContext('2d');
+
     ctx.scale(scale, scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     var offsetX = bounds.minX - padding;
     var offsetY = bounds.minY - padding;
 
-    drawClippedCountry(ctx, geometry.groups, offsetX, offsetY);
-    ctx.clip();
+    drawGeometryPath(ctx, geometry, offsetX, offsetY);
+    ctx.save();
+    ctx.clip('evenodd');
 
     if (exportMode === 'solid') {
       ctx.fillStyle = borderColorInput.value;
@@ -958,50 +1088,48 @@ html, body {
       ctx.fillStyle = '#bfa46f';
       ctx.fillRect(0, 0, exportWidth, exportHeight);
     } else if (exportMode === 'flag') {
-      var flagUrl = getFlagUrl(selectedFeature);
+      var flagUrl = getFlagPngUrl(selectedFeature);
       if (!flagUrl) {
         ctx.fillStyle = borderColorInput.value;
         ctx.fillRect(0, 0, exportWidth, exportHeight);
       } else {
         try {
           var flagImg = await loadImage(flagUrl);
-          var imgRatio = flagImg.width / flagImg.height;
-          var boxRatio = exportWidth / exportHeight;
-          var drawW, drawH, drawX, drawY;
-
-          if (imgRatio > boxRatio) {
-            drawH = exportHeight;
-            drawW = drawH * imgRatio;
-            drawX = (exportWidth - drawW) / 2;
-            drawY = 0;
-          } else {
-            drawW = exportWidth;
-            drawH = drawW / imgRatio;
-            drawX = 0;
-            drawY = (exportHeight - drawH) / 2;
-          }
-          ctx.drawImage(flagImg, drawX, drawY, drawW, drawH);
+          ctx.drawImage(flagImg, 0, 0, exportWidth, exportHeight);
         } catch (e) {
           ctx.fillStyle = borderColorInput.value;
           ctx.fillRect(0, 0, exportWidth, exportHeight);
         }
       }
     }
-
     ctx.restore();
 
+    if (exportMode === 'land') {
+      var outerRings = collectOuterRingsForMask(geometry, offsetX, offsetY);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      for (var gx = 8; gx < exportWidth; gx += 14) {
+        for (var gy = 8; gy < exportHeight; gy += 14) {
+          if (isInsideCountryShape({ x: gx, y: gy }, outerRings)) {
+            ctx.beginPath();
+            ctx.arc(gx, gy, 1.1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+    }
+
     ctx.save();
-    ctx.scale(scale, scale);
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.strokeStyle = borderColorInput.value;
     ctx.lineWidth = Number(borderSizeInput.value);
-
-    drawClippedCountry(ctx, geometry.groups, offsetX, offsetY);
+    drawGeometryPath(ctx, geometry, offsetX, offsetY);
     ctx.stroke();
     ctx.restore();
 
-    var pngUrl = baseCanvas.toDataURL('image/png');
+    var pngUrl = canvas.toDataURL('image/png');
     var modeSuffix = exportMode === 'flag' ? '_flag_transparent.png' : exportMode === 'land' ? '_land_transparent.png' : '_solid_transparent.png';
     var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + modeSuffix;
 
@@ -1025,9 +1153,10 @@ html, body {
       html2canvas(mapEl, {
         useCORS: true,
         allowTaint: false,
-        backgroundColor: null,
+        backgroundColor: '#000000',
         logging: false,
-        scale: 2
+        scale: 4,
+        imageTimeout: 20000
       }).then(function (sourceCanvas) {
         var targetWidth = 2160;
         var targetHeight = 3840;
@@ -1036,25 +1165,24 @@ html, body {
         targetCanvas.height = targetHeight;
         var ctx = targetCanvas.getContext('2d');
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+
         var sourceWidth = sourceCanvas.width;
         var sourceHeight = sourceCanvas.height;
-        var sourceAspect = sourceWidth / sourceHeight;
-        var targetAspect = targetWidth / targetHeight;
+        var scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+        var drawWidth = sourceWidth * scale;
+        var drawHeight = sourceHeight * scale;
+        var drawX = (targetWidth - drawWidth) / 2;
+        var drawY = (targetHeight - drawHeight) / 2;
 
-        var sx = 0, sy = 0, sWidth = sourceWidth, sHeight = sourceHeight;
-
-        if (sourceAspect > targetAspect) {
-          sWidth = sourceHeight * targetAspect;
-          sx = (sourceWidth - sWidth) / 2;
-        } else {
-          sHeight = sourceWidth / targetAspect;
-          sy = (sourceHeight - sHeight) / 2;
-        }
-
-        ctx.drawImage(sourceCanvas, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+        ctx.drawImage(sourceCanvas, drawX, drawY, drawWidth, drawHeight);
 
         var pngUrl = targetCanvas.toDataURL('image/png');
-        var filename = 'map_9x16_4k_screenshot.png';
+        var filename = 'map_9x16_4k_full_detail.png';
 
         openPreview(pngUrl, filename, 'png');
         setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
@@ -1065,7 +1193,7 @@ html, body {
         if (!previousRecordingState) app.classList.remove('recording');
         setStatus('9:16 screenshot export failed');
       });
-    }, 120);
+    }, 180);
   }
 
   function recordMode() {
@@ -1182,26 +1310,44 @@ html, body {
     return found;
   }
 
-  function startFillDrag(e) {
-    if (!dragFillToggle.checked) return;
-    if (!selectedLayer || !selectedFeature || fillModeSelect.value === 'solid') return;
+  function canStartFlagDrag() {
+    return !!(dragFillToggle.checked && selectedLayer && selectedFeature && fillModeSelect.value !== 'solid');
+  }
+
+  function startFlagDrag(point) {
+    if (!canStartFlagDrag()) return;
     isDraggingFill = true;
-    dragStartPoint = e.containerPoint;
-    dragStartOffset = { x: 0, y: 0 };
+    currentPointerDown = point;
+    touchDragStarted = true;
     map.dragging.disable();
     setStatus('Dragging full flag fill...');
   }
 
-  function moveFillDrag() {
-    if (!isDraggingFill || !selectedFeature || !selectedLayer) return;
+  function moveFlagDrag(point) {
+    if (!isDraggingFill || !selectedFeature || !selectedLayer || !currentPointerDown) return;
+    var dx = point.x - currentPointerDown.x;
+    var dy = point.y - currentPointerDown.y;
+    currentPointerDown = point;
+
+    var offset = getCurrentFillOffset(selectedFeature);
+    offset.x += dx;
+    offset.y += dy;
     applyHighlight(selectedLayer, selectedFeature);
   }
 
-  function endFillDrag() {
+  function endFlagDrag() {
     if (!isDraggingFill) return;
     isDraggingFill = false;
+    currentPointerDown = null;
     map.dragging.enable();
     setStatus('Flag fill position saved for ' + getFeatureName(selectedFeature));
+  }
+
+  function clearTouchHoldTimer() {
+    if (touchHoldTimer) {
+      clearTimeout(touchHoldTimer);
+      touchHoldTimer = null;
+    }
   }
 
   satelliteLayer.on('tileerror', function () {
@@ -1262,16 +1408,77 @@ html, body {
     runCountrySearch(quickSearchInput.value);
   });
 
-  ['fillModeSelect', 'borderColor', 'borderSize', 'fadeSlider', 'labelToggle', 'flagToggle', 'dragFillToggle'].forEach(function (id) {
-    var eventName = (id === 'borderColor' || id === 'borderSize' || id === 'fadeSlider') ? 'input' : 'change';
+  ['fillModeSelect', 'borderColor', 'borderSize', 'fadeSlider', 'labelToggle', 'flagToggle', 'dragFillToggle', 'flagSize'].forEach(function (id) {
+    var eventName = (id === 'borderColor' || id === 'borderSize' || id === 'fadeSlider' || id === 'flagSize') ? 'input' : 'change';
     document.getElementById(id).addEventListener(eventName, function () {
+      if (id === 'flagSize') updateFlagSizeLabel();
       if (selectedLayer && selectedFeature) applyHighlight(selectedLayer, selectedFeature);
     });
   });
 
-  map.on('mousedown', startFillDrag);
-  map.on('mousemove', moveFillDrag);
-  map.on('mouseup', endFillDrag);
+  map.on('mousedown', function (e) {
+    if (!canStartFlagDrag()) return;
+    startFlagDrag(e.containerPoint);
+  });
+
+  map.on('mousemove', function (e) {
+    if (!isDraggingFill) return;
+    moveFlagDrag(e.containerPoint);
+  });
+
+  map.on('mouseup', function () {
+    endFlagDrag();
+  });
+
+  map.on('mouseout', function () {
+    endFlagDrag();
+  });
+
+  var mapContainer = map.getContainer();
+
+  mapContainer.addEventListener('touchstart', function (evt) {
+    if (!canStartFlagDrag()) return;
+    if (!evt.touches || !evt.touches.length) return;
+    touchDragStarted = false;
+    var rect = mapContainer.getBoundingClientRect();
+    var touch = evt.touches[0];
+    var point = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+    currentPointerDown = point;
+
+    clearTouchHoldTimer();
+    touchHoldTimer = setTimeout(function () {
+      startFlagDrag(point);
+    }, 220);
+  }, { passive: true });
+
+  mapContainer.addEventListener('touchmove', function (evt) {
+    if (!evt.touches || !evt.touches.length) return;
+    var rect = mapContainer.getBoundingClientRect();
+    var touch = evt.touches[0];
+    var point = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+
+    if (!isDraggingFill) {
+      if (currentPointerDown) {
+        var dx = point.x - currentPointerDown.x;
+        var dy = point.y - currentPointerDown.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 12) clearTouchHoldTimer();
+      }
+      return;
+    }
+
+    evt.preventDefault();
+    moveFlagDrag(point);
+  }, { passive: false });
+
+  mapContainer.addEventListener('touchend', function () {
+    clearTouchHoldTimer();
+    endFlagDrag();
+  }, { passive: true });
+
+  mapContainer.addEventListener('touchcancel', function () {
+    clearTouchHoldTimer();
+    endFlagDrag();
+  }, { passive: true });
 
   function loadCountryBoundaries() {
     var sources = [
@@ -1309,6 +1516,7 @@ html, body {
     tryLoad(0);
   }
 
+  updateFlagSizeLabel();
   loadCountryBoundaries();
   useBasemap('satellite');
 }());
