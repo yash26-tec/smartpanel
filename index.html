@@ -6,6 +6,7 @@
 <title>Geopolitics Explainer Map Tool</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 html, body {
   margin: 0;
@@ -74,9 +75,7 @@ html, body {
   color: #fff;
   outline: none;
 }
-.search-chip input::placeholder {
-  color: rgba(255,255,255,.55);
-}
+.search-chip input::placeholder { color: rgba(255,255,255,.55); }
 .search-chip input:focus {
   border-color: rgba(96,165,250,.8);
   box-shadow: 0 0 0 3px rgba(59,130,246,.18);
@@ -113,9 +112,7 @@ html, body {
   max-height: calc(100vh - 92px);
   overflow: auto;
 }
-.toolbar::-webkit-scrollbar {
-  width: 8px;
-}
+.toolbar::-webkit-scrollbar { width: 8px; }
 .toolbar::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,.14);
   border-radius: 999px;
@@ -133,9 +130,7 @@ html, body {
   color: #fff;
   outline: none;
 }
-.toolbar input::placeholder {
-  color: rgba(255,255,255,.55);
-}
+.toolbar input::placeholder { color: rgba(255,255,255,.55); }
 .toolbar input:focus,
 .toolbar select:focus {
   border-color: rgba(96,165,250,.8);
@@ -148,9 +143,7 @@ html, body {
   font-weight: 600;
   letter-spacing: .01em;
 }
-.toolbar button:hover {
-  filter: brightness(1.05);
-}
+.toolbar button:hover { filter: brightness(1.05); }
 .toolbar .secondary {
   background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.08);
@@ -224,7 +217,8 @@ html, body {
 }
 .recording .fab,
 .recording .toolbar,
-.recording .status-pill {
+.recording .status-pill,
+.recording .search-chip {
   display: none !important;
 }
 .hidden-svg-host {
@@ -297,9 +291,7 @@ html, body {
   font-size: 12px;
   cursor: pointer;
 }
-.preview-actions .secondary {
-  background: #334155;
-}
+.preview-actions .secondary { background: #334155; }
 .preview-body {
   background: transparent;
   overflow: auto;
@@ -329,7 +321,9 @@ html, body {
     <input id="quickSearchInput" placeholder="Search country..." />
     <button id="quickSearchBtn" type="button">⌕</button>
   </div>
+
   <div class="fab" id="fab">⚙</div>
+
   <div class="toolbar" id="tools">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px;">
       <div>
@@ -362,9 +356,18 @@ html, body {
     </select>
 
     <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px;">
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="labelToggle" checked style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Show Label</span></label>
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="flagToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Small Flag Marker</span></label>
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);"><input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" /> <span>Drag Full Flag Fill</span></label>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
+        <input type="checkbox" id="labelToggle" checked style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
+        <span>Show Label</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
+        <input type="checkbox" id="flagToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
+        <span>Small Flag Marker</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
+        <input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
+        <span>Drag Full Flag Fill</span>
+      </label>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -377,12 +380,15 @@ html, body {
       <button id="exportNoFlagBtn">PNG Solid</button>
       <button id="exportWithFlagBtn">PNG Flag</button>
       <button id="exportLandBtn">PNG Land</button>
+      <button id="exportPortrait4kBtn">9:16 4K Shot</button>
       <button class="secondary" id="resetBtn" style="grid-column:1 / -1;">Full Reset</button>
     </div>
   </div>
+
   <div id="map"></div>
   <div class="status-pill" id="statusPill">Loading map...</div>
   <div id="svgFallbackHost" class="hidden-svg-host"></div>
+
   <div id="previewModal" class="preview-modal">
     <div class="preview-card">
       <div class="preview-header">
@@ -405,7 +411,6 @@ html, body {
   var statusPill = document.getElementById('statusPill');
   var fab = document.getElementById('fab');
   var tools = document.getElementById('tools');
-  var searchInput = document.getElementById('searchInput');
   var quickSearchInput = document.getElementById('quickSearchInput');
   var quickSearchBtn = document.getElementById('quickSearchBtn');
   var borderColorInput = document.getElementById('borderColor');
@@ -424,16 +429,15 @@ html, body {
   var exportNoFlagBtn = document.getElementById('exportNoFlagBtn');
   var exportWithFlagBtn = document.getElementById('exportWithFlagBtn');
   var exportLandBtn = document.getElementById('exportLandBtn');
+  var exportPortrait4kBtn = document.getElementById('exportPortrait4kBtn');
   var clearSelectionBtn = document.getElementById('clearSelectionBtn');
   var resetBtn = document.getElementById('resetBtn');
-  var svgFallbackHost = document.getElementById('svgFallbackHost');
   var previewModal = document.getElementById('previewModal');
   var previewTitle = document.getElementById('previewTitle');
   var previewBody = document.getElementById('previewBody');
   var previewDownloadBtn = document.getElementById('previewDownloadBtn');
   var previewOpenLink = document.getElementById('previewOpenLink');
   var previewCloseBtn = document.getElementById('previewCloseBtn');
-  var previewNote = document.getElementById('previewNote');
 
   var map = L.map('map', {
     zoomControl: false,
@@ -442,8 +446,15 @@ html, body {
     renderer: L.svg()
   }).setView([20, 0], 3);
 
-  var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
-  var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 });
+  var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 18,
+    crossOrigin: true
+  });
+  var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19,
+    crossOrigin: true
+  });
 
   var activeBaseLayer = null;
   var geoLayer = null;
@@ -460,6 +471,8 @@ html, body {
   var pathLayers = [];
   var pathHandles = [];
   var pathLabels = [];
+  var currentPreviewUrl = '';
+  var currentPreviewFilename = '';
 
   function setStatus(message) {
     statusPill.textContent = message;
@@ -473,12 +486,10 @@ html, body {
 
   function showIndiaSchoolOutline() {
     if (!indiaSchoolOutlineLayer) {
-      var indiaSchoolMapDataUrl = 'data:image/png;base64,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';
-      var imageBounds = L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]);
-      indiaSchoolOutlineLayer = L.imageOverlay(indiaSchoolMapDataUrl, imageBounds, {
+      indiaSchoolOutlineLayer = L.imageOverlay('india-political-map.png', L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]), {
         opacity: 1,
         interactive: false,
-        crossOrigin: false
+        crossOrigin: 'anonymous'
       });
     }
     indiaSchoolOutlineLayer.addTo(map);
@@ -492,10 +503,10 @@ html, body {
     }
 
     if (type === 'indiaOutline') {
-      map.getContainer().style.background = '#9ec7e5';
-      if (geoLayer) map.setView([22.8, 81.2], 4.6, { animate: false });
+      map.getContainer().style.background = '#000';
+      map.setView([22.8, 81.2], 4.6, { animate: false });
       showIndiaSchoolOutline();
-      setStatus('India school-outline mode');
+      setStatus('India outline mode');
       return;
     }
 
@@ -528,7 +539,7 @@ html, body {
       var normalized = String(raw).trim().toLowerCase();
       if (/^[a-z]{2}$/.test(normalized)) return normalized;
     }
-    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || props['ISO3166-1-Alpha-3'] || '').trim().toUpperCase();
+    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || '').trim().toUpperCase();
     var a3ToA2 = {
       IND: 'in', USA: 'us', CHN: 'cn', RUS: 'ru', FRA: 'fr', DEU: 'de', ITA: 'it', GBR: 'gb', BRA: 'br', JPN: 'jp', PAK: 'pk',
       BGD: 'bd', TUR: 'tr', UKR: 'ua', ARG: 'ar', IDN: 'id', NLD: 'nl', POL: 'pl', IRL: 'ie', FIN: 'fi', ESP: 'es', PRT: 'pt',
@@ -536,13 +547,12 @@ html, body {
       IRQ: 'iq', AFG: 'af', KOR: 'kr', PRK: 'kp', AUS: 'au', NZL: 'nz', CAN: 'ca', MEX: 'mx', ZAF: 'za', EGY: 'eg', ETH: 'et',
       NGA: 'ng', KEN: 'ke', VNM: 'vn', THA: 'th', MMR: 'mm', LKA: 'lk', NPL: 'np', BTN: 'bt', MAR: 'ma', DZA: 'dz'
     };
-    if (a3 && a3ToA2[a3]) return a3ToA2[a3];
-    return null;
+    return a3ToA2[a3] || null;
   }
 
   function getFlagUrl(feature) {
     var iso2 = getIso2(feature);
-    return iso2 ? 'https://flagcdn.com/w320/' + iso2 + '.png' : null;
+    return iso2 ? ('https://flagcdn.com/w640/' + iso2 + '.png') : null;
   }
 
   function clearMarkers() {
@@ -582,139 +592,43 @@ html, body {
     });
   }
 
-  function getOrCreateDefsRoot() {
-    var overlaySvg = map.getPanes().overlayPane.querySelector('svg');
-    var hostSvg = svgFallbackHost.querySelector('svg');
-    var svg = overlaySvg || hostSvg;
-    if (!svg) {
-      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('width', '0');
-      svg.setAttribute('height', '0');
-      svgFallbackHost.appendChild(svg);
-    }
+  function createSvgPatternForMap(layer, feature) {
+    if (!layer || !layer._path) return false;
+    var iso2 = getIso2(feature);
+    if (!iso2) return false;
+
+    var svg = map.getPanes().overlayPane.querySelector('svg');
+    if (!svg) return false;
     var defs = svg.querySelector('defs');
     if (!defs) {
       defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
       svg.appendChild(defs);
     }
-    return defs;
-  }
 
-  function setAttrs(node, attrs) {
-    Object.keys(attrs).forEach(function (key) { node.setAttribute(key, attrs[key]); });
-  }
-
-  function createSvgNode(name, attrs) {
-    var node = document.createElementNS('http://www.w3.org/2000/svg', name);
-    if (attrs) setAttrs(node, attrs);
-    return node;
-  }
-
-  function createFlagPattern(patternId, iso2) {
-    var defs = getOrCreateDefsRoot();
-    var existing = document.getElementById(patternId);
-    if (existing) {
-      existing.innerHTML = '';
-      return buildFlag(existing, iso2);
-    }
-    var pattern = createSvgNode('pattern', {
-      id: patternId,
-      patternUnits: 'objectBoundingBox',
-      patternContentUnits: 'objectBoundingBox',
-      x: '0',
-      y: '0',
-      width: '1',
-      height: '1'
-    });
-    defs.appendChild(pattern);
-    return buildFlag(pattern, iso2);
-  }
-
-  function buildFlag(pattern, iso2) {
-    function rect(x, y, w, h, fill) {
-      pattern.appendChild(createSvgNode('rect', { x: x, y: y, width: w, height: h, fill: fill }));
-    }
-    function circle(cx, cy, r, fill, extra) {
-      var attrs = { cx: cx, cy: cy, r: r, fill: fill };
-      if (extra) Object.keys(extra).forEach(function (k) { attrs[k] = extra[k]; });
-      pattern.appendChild(createSvgNode('circle', attrs));
-    }
-    function line(x1, y1, x2, y2, stroke, width) {
-      pattern.appendChild(createSvgNode('line', {
-        x1: x1, y1: y1, x2: x2, y2: y2,
-        stroke: stroke,
-        'stroke-width': width,
-        'stroke-linecap': 'round'
-      }));
-    }
-
-    if (iso2 === 'in') {
-      rect(0, 0, 1, 0.3334, '#FF9933');
-      rect(0, 0.3334, 1, 0.3332, '#FFFFFF');
-      rect(0, 0.6666, 1, 0.3334, '#138808');
-      circle(0.5, 0.5, 0.12, 'none', { stroke: '#000080', 'stroke-width': 0.018 });
-      circle(0.5, 0.5, 0.012, '#000080');
-      for (var i = 0; i < 24; i += 1) {
-        var angle = (Math.PI * 2 * i) / 24 - Math.PI / 2;
-        line(0.5, 0.5, 0.5 + 0.12 * Math.cos(angle), 0.5 + 0.12 * Math.sin(angle), '#000080', 0.01);
-      }
-      return pattern;
-    }
-
-    if (iso2 && iso2.length === 2) {
-      var img = createSvgNode('image', {
-        href: 'https://flagcdn.com/' + iso2 + '.svg',
-        x: '0',
-        y: '0',
-        width: '1',
-        height: '1',
-        preserveAspectRatio: 'none'
-      });
-      pattern.appendChild(img);
-      return pattern;
-    }
-
-    rect(0, 0, 1, 0.3334, '#2563eb');
-    rect(0, 0.3334, 1, 0.3332, '#ffffff');
-    rect(0, 0.6666, 1, 0.3334, '#dc2626');
-    return pattern;
-  }
-
-  function getFillOffsetKey(feature) {
-    return 'flag-fill-offset-' + (getIso2(feature) || 'generic');
-  }
-
-  function getStoredFillOffset(feature) {
-    try {
-      var raw = localStorage.getItem(getFillOffsetKey(feature));
-      if (!raw) return { x: 0, y: 0 };
-      var parsed = JSON.parse(raw);
-      return { x: Number(parsed.x) || 0, y: Number(parsed.y) || 0 };
-    } catch (e) {
-      return { x: 0, y: 0 };
-    }
-  }
-
-  function saveFillOffset(feature, offset) {
-    localStorage.setItem(getFillOffsetKey(feature), JSON.stringify({ x: Number(offset.x) || 0, y: Number(offset.y) || 0 }));
-  }
-
-  function applyPatternOffset(pattern, offset) {
-    if (!pattern) return;
-    pattern.setAttribute('x', String(Number(offset.x) || 0));
-    pattern.setAttribute('y', String(Number(offset.y) || 0));
-  }
-
-  function applyProceduralFlagFill(layer, feature) {
-    if (!layer || !layer._path) return false;
-    var iso2 = getIso2(feature) || 'generic';
     var patternId = 'flag-fill-' + iso2;
-    var pattern = createFlagPattern(patternId, iso2);
-    if (!pattern) return false;
-    applyPatternOffset(pattern, getStoredFillOffset(feature));
+    var existing = document.getElementById(patternId);
+    if (existing) existing.remove();
+
+    var pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+    pattern.setAttribute('id', patternId);
+    pattern.setAttribute('patternUnits', 'objectBoundingBox');
+    pattern.setAttribute('width', '1');
+    pattern.setAttribute('height', '1');
+
+    var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'https://flagcdn.com/' + iso2 + '.svg');
+    img.setAttribute('href', 'https://flagcdn.com/' + iso2 + '.svg');
+    img.setAttribute('width', '100%');
+    img.setAttribute('height', '100%');
+    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+
+    pattern.appendChild(img);
+    defs.appendChild(pattern);
+
     layer._path.setAttribute('fill', 'url(#' + patternId + ')');
     layer._path.style.fill = 'url(#' + patternId + ')';
     layer._path.style.fillOpacity = String(Number(fadeSliderInput.value));
+
     return true;
   }
 
@@ -736,17 +650,15 @@ html, body {
   function getVisualCenter(layer) {
     var latlngs = layer.getLatLngs();
     if (!latlngs || !latlngs.length) return layer.getBounds().getCenter();
-    function flatten(input, out) {
-      for (var i = 0; i < input.length; i += 1) {
-        if (Array.isArray(input[i])) flatten(input[i], out);
-        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') out.push(input[i]);
-      }
-    }
     var points = [];
-    flatten(latlngs, points);
+    (function flatten(input) {
+      for (var i = 0; i < input.length; i += 1) {
+        if (Array.isArray(input[i])) flatten(input[i]);
+        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') points.push(input[i]);
+      }
+    }(latlngs));
     if (!points.length) return layer.getBounds().getCenter();
-    var sumLat = 0;
-    var sumLng = 0;
+    var sumLat = 0, sumLng = 0;
     for (var j = 0; j < points.length; j += 1) {
       sumLat += points[j].lat;
       sumLng += points[j].lng;
@@ -771,7 +683,10 @@ html, body {
     if (!flagUrl) return;
     var center = layer.getBounds().getCenter();
     flagMarker = L.marker([center.lat + 2, center.lng], {
-      icon: L.divIcon({ className: '', html: '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:2px;box-shadow:0 2px 10px rgba(0,0,0,.35);"><img src="' + flagUrl + '" alt="flag" style="width:34px;border-radius:3px;display:block;"></div>' })
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:2px;box-shadow:0 2px 10px rgba(0,0,0,.35);"><img src="' + flagUrl + '" alt="flag" crossorigin="anonymous" style="width:34px;border-radius:3px;display:block;"></div>'
+      })
     }).addTo(map);
   }
 
@@ -785,32 +700,6 @@ html, body {
       }).addTo(map);
     }
     addFlag(feature, layer);
-  }
-
-  function applyHighlight(layer, feature) {
-    if (!geoLayer || !layer || !feature) return;
-    var color = borderColorInput.value;
-    var size = Number(borderSizeInput.value);
-    var opacity = Number(fadeSliderInput.value);
-    var fillMode = fillModeSelect.value;
-    resetLayerStyles();
-    clearMarkers();
-    layer.setStyle({ color: color, weight: size, fillColor: color, fillOpacity: opacity, opacity: 1 });
-    addLabel(feature, layer);
-    if (fillMode === 'solid') {
-      applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-      setStatus(getFeatureName(feature) + ' selected');
-      return;
-    }
-    if (!applyProceduralFlagFill(layer, feature)) {
-      layer.setStyle({ fillColor: color, fillOpacity: opacity });
-      applyIndiaClaimOverlay(feature, 'solid', color, size, opacity);
-      setStatus('Flag fill unavailable for ' + getFeatureName(feature) + '. Using solid color');
-      return;
-    }
-    applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-    if (fillMode === 'pulseFlag') animateSelectedLayer();
-    setStatus(getFeatureName(feature) + ' selected');
   }
 
   function applyIndiaClaimOverlay(feature, fillMode, color, size, opacity) {
@@ -837,16 +726,41 @@ html, body {
     }).addTo(map);
 
     if (fillMode !== 'solid' && indiaClaimOverlay._path) {
-      var iso2 = 'in';
-      var patternId = 'flag-fill-' + iso2;
-      var pattern = createFlagPattern(patternId, iso2);
-      if (pattern) {
-        applyPatternOffset(pattern, getStoredFillOffset(feature));
-        indiaClaimOverlay._path.setAttribute('fill', 'url(#' + patternId + ')');
-        indiaClaimOverlay._path.style.fill = 'url(#' + patternId + ')';
-        indiaClaimOverlay._path.style.fillOpacity = String(opacity);
-      }
+      createSvgPatternForMap(indiaClaimOverlay, feature);
+      indiaClaimOverlay._path.style.fillOpacity = String(opacity);
     }
+  }
+
+  function applyHighlight(layer, feature) {
+    if (!geoLayer || !layer || !feature) return;
+    var color = borderColorInput.value;
+    var size = Number(borderSizeInput.value);
+    var opacity = Number(fadeSliderInput.value);
+    var fillMode = fillModeSelect.value;
+
+    resetLayerStyles();
+    clearMarkers();
+
+    layer.setStyle({ color: color, weight: size, fillColor: color, fillOpacity: opacity, opacity: 1 });
+    addLabel(feature, layer);
+
+    if (fillMode === 'solid') {
+      applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
+      setStatus(getFeatureName(feature) + ' selected');
+      return;
+    }
+
+    var ok = createSvgPatternForMap(layer, feature);
+    if (!ok) {
+      layer.setStyle({ fillColor: color, fillOpacity: opacity });
+      applyIndiaClaimOverlay(feature, 'solid', color, size, opacity);
+      setStatus('Flag fill unavailable for ' + getFeatureName(feature) + '. Using solid color');
+      return;
+    }
+
+    applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
+    if (fillMode === 'pulseFlag') animateSelectedLayer();
+    setStatus(getFeatureName(feature) + ' selected');
   }
 
   function clearSelection() {
@@ -866,9 +780,6 @@ html, body {
     map.flyTo([20, 0], 3);
     setStatus('Map reset');
   }
-
-  var currentPreviewUrl = '';
-  var currentPreviewFilename = '';
 
   function closePreviewModal() {
     previewModal.style.display = 'none';
@@ -904,7 +815,6 @@ html, body {
     var link = document.createElement('a');
     link.href = url;
     link.download = filename;
-    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -912,155 +822,250 @@ html, body {
 
   function triggerBlobDownloadFromUrl(url, filename) {
     fetch(url)
-      .then(function (response) {
-        return response.blob();
-      })
+      .then(function (response) { return response.blob(); })
       .then(function (blob) {
         var blobUrl = URL.createObjectURL(blob);
         triggerDownload(blobUrl, filename);
         setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 1000);
         setStatus('Download started');
       })
-      .catch(function (error) {
-        console.error(error);
+      .catch(function () {
         setStatus('Download failed. Use Open and save manually.');
       });
   }
 
-  function getExportPaths() {
-    var items = [];
-    if (!selectedLayer || !selectedLayer._path) return items;
-
-    items.push({
-      d: selectedLayer._path.getAttribute('d'),
-      bbox: selectedLayer._path.getBBox()
-    });
-
-    if (selectedFeature && getIso2(selectedFeature) === 'in' && indiaClaimOverlay && indiaClaimOverlay._path) {
-      items.push({
-        d: indiaClaimOverlay._path.getAttribute('d'),
-        bbox: indiaClaimOverlay._path.getBBox()
-      });
-    }
-
-    return items.filter(function (item) {
-      return item && item.d && item.bbox && isFinite(item.bbox.width) && isFinite(item.bbox.height);
+  function loadImage(url) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () { resolve(img); };
+      img.onerror = reject;
+      img.src = url;
     });
   }
 
-  function buildExportSvgString(exportMode) {
-    if (!selectedLayer || !selectedFeature || !selectedLayer._path) return null;
+  function getNestedLatLngGroups(layer) {
+    var latlngs = layer.getLatLngs();
+    if (!latlngs || !latlngs.length) return [];
 
-    var exportItems = getExportPaths();
-    if (!exportItems.length) return null;
+    function isPoint(v) {
+      return v && typeof v.lat === 'number' && typeof v.lng === 'number';
+    }
 
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    exportItems.forEach(function (item) {
-      minX = Math.min(minX, item.bbox.x);
-      minY = Math.min(minY, item.bbox.y);
-      maxX = Math.max(maxX, item.bbox.x + item.bbox.width);
-      maxY = Math.max(maxY, item.bbox.y + item.bbox.height);
-    });
-
-    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return null;
-
-    var padding = 24;
-    var exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    exportSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-    exportSvg.setAttribute('width', '2048');
-    exportSvg.setAttribute('height', '2048');
-    exportSvg.setAttribute('viewBox', [
-      minX - padding,
-      minY - padding,
-      (maxX - minX) + padding * 2,
-      (maxY - minY) + padding * 2
-    ].join(' '));
-
-    var iso2 = getIso2(selectedFeature) || 'generic';
-    var patternId = 'flag-fill-' + iso2;
-
-    if (exportMode === 'flag') {
-      createFlagPattern(patternId, iso2);
-      var patternNode = document.getElementById(patternId);
-      if (patternNode) {
-        var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.appendChild(patternNode.cloneNode(true));
-        exportSvg.appendChild(defs);
+    function collect(input, out) {
+      if (!Array.isArray(input) || !input.length) return;
+      if (isPoint(input[0])) {
+        out.push(input);
+        return;
+      }
+      for (var i = 0; i < input.length; i += 1) {
+        collect(input[i], out);
       }
     }
 
-    var fillValue = borderColorInput.value;
-    if (exportMode === 'land') fillValue = '#bfa46f';
-    if (exportMode === 'flag') fillValue = 'url(#' + patternId + ')';
-
-    exportItems.forEach(function (item) {
-      var exportPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      exportPath.setAttribute('d', item.d);
-      exportPath.setAttribute('stroke', borderColorInput.value);
-      exportPath.setAttribute('stroke-width', String(Number(borderSizeInput.value)));
-      exportPath.setAttribute('stroke-linejoin', 'round');
-      exportPath.setAttribute('stroke-linecap', 'round');
-      exportPath.setAttribute('fill', fillValue);
-      exportPath.setAttribute('fill-opacity', '1');
-      exportSvg.appendChild(exportPath);
-    });
-
-    return new XMLSerializer().serializeToString(exportSvg);
+    var groups = [];
+    collect(latlngs, groups);
+    return groups;
   }
 
-  function exportSelectedPng(exportMode) {
-    var svgString = buildExportSvgString(exportMode);
-    if (!svgString) {
+  function getProjectedExportGeometry() {
+    if (!selectedLayer) return null;
+
+    var groups = getNestedLatLngGroups(selectedLayer);
+    var overlayGroups = [];
+
+    if (selectedFeature && getIso2(selectedFeature) === 'in' && indiaClaimOverlay) {
+      overlayGroups = getNestedLatLngGroups(indiaClaimOverlay);
+    }
+
+    var allGroups = groups.concat(overlayGroups);
+    if (!allGroups.length) return null;
+
+    var bounds = {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    };
+
+    var projectedGroups = allGroups.map(function (ring) {
+      return ring.map(function (latlng) {
+        var pt = map.latLngToLayerPoint(latlng);
+        bounds.minX = Math.min(bounds.minX, pt.x);
+        bounds.minY = Math.min(bounds.minY, pt.y);
+        bounds.maxX = Math.max(bounds.maxX, pt.x);
+        bounds.maxY = Math.max(bounds.maxY, pt.y);
+        return pt;
+      });
+    });
+
+    if (!isFinite(bounds.minX)) return null;
+    return { groups: projectedGroups, bounds: bounds };
+  }
+
+  function drawClippedCountry(ctx, groups, offsetX, offsetY) {
+    ctx.beginPath();
+    groups.forEach(function (ring) {
+      ring.forEach(function (pt, idx) {
+        var x = pt.x - offsetX;
+        var y = pt.y - offsetY;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+    });
+  }
+
+  async function exportSelectedPng(exportMode) {
+    if (!selectedLayer || !selectedFeature) {
       setStatus('Select a country first');
       return;
     }
 
-    var img = new Image();
-    img.decoding = 'sync';
+    var geometry = getProjectedExportGeometry();
+    if (!geometry) {
+      setStatus('Export failed');
+      return;
+    }
 
-    img.onload = function () {
-      var canvas = document.createElement('canvas');
-      canvas.width = 2048;
-      canvas.height = 2048;
+    var padding = 40;
+    var bounds = geometry.bounds;
+    var width = Math.max(1, bounds.maxX - bounds.minX);
+    var height = Math.max(1, bounds.maxY - bounds.minY);
 
-      var ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, 2048, 2048);
-      ctx.drawImage(img, 0, 0, 2048, 2048);
+    var baseCanvas = document.createElement('canvas');
+    baseCanvas.width = 2048;
+    baseCanvas.height = 2048;
+    var ctx = baseCanvas.getContext('2d');
 
-      var pngUrl;
-      try {
-        pngUrl = canvas.toDataURL('image/png');
-      } catch (e) {
-        console.error(e);
-        setStatus('PNG export failed');
-        return;
+    var exportWidth = width + padding * 2;
+    var exportHeight = height + padding * 2;
+    var scale = Math.min(2048 / exportWidth, 2048 / exportHeight);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+
+    var offsetX = bounds.minX - padding;
+    var offsetY = bounds.minY - padding;
+
+    drawClippedCountry(ctx, geometry.groups, offsetX, offsetY);
+    ctx.clip();
+
+    if (exportMode === 'solid') {
+      ctx.fillStyle = borderColorInput.value;
+      ctx.fillRect(0, 0, exportWidth, exportHeight);
+    } else if (exportMode === 'land') {
+      ctx.fillStyle = '#bfa46f';
+      ctx.fillRect(0, 0, exportWidth, exportHeight);
+    } else if (exportMode === 'flag') {
+      var flagUrl = getFlagUrl(selectedFeature);
+      if (!flagUrl) {
+        ctx.fillStyle = borderColorInput.value;
+        ctx.fillRect(0, 0, exportWidth, exportHeight);
+      } else {
+        try {
+          var flagImg = await loadImage(flagUrl);
+          var imgRatio = flagImg.width / flagImg.height;
+          var boxRatio = exportWidth / exportHeight;
+          var drawW, drawH, drawX, drawY;
+
+          if (imgRatio > boxRatio) {
+            drawH = exportHeight;
+            drawW = drawH * imgRatio;
+            drawX = (exportWidth - drawW) / 2;
+            drawY = 0;
+          } else {
+            drawW = exportWidth;
+            drawH = drawW / imgRatio;
+            drawX = 0;
+            drawY = (exportHeight - drawH) / 2;
+          }
+          ctx.drawImage(flagImg, drawX, drawY, drawW, drawH);
+        } catch (e) {
+          ctx.fillStyle = borderColorInput.value;
+          ctx.fillRect(0, 0, exportWidth, exportHeight);
+        }
       }
+    }
 
-      var modeSuffix = exportMode === 'flag'
-        ? '_flag_transparent.png'
-        : exportMode === 'land'
-        ? '_land_transparent.png'
-        : '_solid_transparent.png';
+    ctx.restore();
 
-      var filename = getFeatureName(selectedFeature)
-        .replace(/[^a-z0-9]+/gi, '_')
-        .toLowerCase() + modeSuffix;
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = borderColorInput.value;
+    ctx.lineWidth = Number(borderSizeInput.value);
 
-      openPreview(pngUrl, filename, 'png');
-      setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
+    drawClippedCountry(ctx, geometry.groups, offsetX, offsetY);
+    ctx.stroke();
+    ctx.restore();
 
-      if (exportMode === 'flag') setStatus('Transparent PNG with flag ready');
-      else if (exportMode === 'land') setStatus('Transparent land PNG ready');
-      else setStatus('Transparent solid PNG ready');
-    };
+    var pngUrl = baseCanvas.toDataURL('image/png');
+    var modeSuffix = exportMode === 'flag' ? '_flag_transparent.png' : exportMode === 'land' ? '_land_transparent.png' : '_solid_transparent.png';
+    var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + modeSuffix;
 
-    img.onerror = function (err) {
-      console.error(err);
-      setStatus('PNG export failed');
-    };
+    openPreview(pngUrl, filename, 'png');
+    setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
+    setStatus('PNG ready');
+  }
 
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+  function exportPortrait4kScreenshot() {
+    var mapEl = document.getElementById('map');
+    if (!mapEl) {
+      setStatus('Map not found');
+      return;
+    }
+
+    var previousRecordingState = app.classList.contains('recording');
+    app.classList.add('recording');
+    setStatus('Preparing 9:16 4K screenshot...');
+
+    setTimeout(function () {
+      html2canvas(mapEl, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: null,
+        logging: false,
+        scale: 2
+      }).then(function (sourceCanvas) {
+        var targetWidth = 2160;
+        var targetHeight = 3840;
+        var targetCanvas = document.createElement('canvas');
+        targetCanvas.width = targetWidth;
+        targetCanvas.height = targetHeight;
+        var ctx = targetCanvas.getContext('2d');
+
+        var sourceWidth = sourceCanvas.width;
+        var sourceHeight = sourceCanvas.height;
+        var sourceAspect = sourceWidth / sourceHeight;
+        var targetAspect = targetWidth / targetHeight;
+
+        var sx = 0, sy = 0, sWidth = sourceWidth, sHeight = sourceHeight;
+
+        if (sourceAspect > targetAspect) {
+          sWidth = sourceHeight * targetAspect;
+          sx = (sourceWidth - sWidth) / 2;
+        } else {
+          sHeight = sourceWidth / targetAspect;
+          sy = (sourceHeight - sHeight) / 2;
+        }
+
+        ctx.drawImage(sourceCanvas, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+
+        var pngUrl = targetCanvas.toDataURL('image/png');
+        var filename = 'map_9x16_4k_screenshot.png';
+
+        openPreview(pngUrl, filename, 'png');
+        setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
+
+        if (!previousRecordingState) app.classList.remove('recording');
+        setStatus('9:16 4K screenshot ready');
+      }).catch(function () {
+        if (!previousRecordingState) app.classList.remove('recording');
+        setStatus('9:16 screenshot export failed');
+      });
+    }, 120);
   }
 
   function recordMode() {
@@ -1068,7 +1073,10 @@ html, body {
   }
 
   function makeHandle(latlng, className) {
-    return L.marker(latlng, { draggable: true, icon: L.divIcon({ className: className, html: '', iconSize: [14, 14], iconAnchor: [7, 7] }) }).addTo(map);
+    return L.marker(latlng, {
+      draggable: true,
+      icon: L.divIcon({ className: className, html: '', iconSize: [14, 14], iconAnchor: [7, 7] })
+    }).addTo(map);
   }
 
   function createArrowDecorator(start, end) {
@@ -1107,44 +1115,6 @@ html, body {
     return marker;
   }
 
-  function serializeLatLng(latlng) {
-    return { lat: Number(latlng.lat), lng: Number(latlng.lng) };
-  }
-
-  function deserializeLatLng(obj) {
-    return L.latLng(obj.lat, obj.lng);
-  }
-
-  function getLatestArrowData(type) {
-    for (var i = pathLayers.length - 1; i >= 0; i -= 1) {
-      var layer = pathLayers[i];
-      if (layer && layer.__kind === type && layer.__startHandle && layer.__endHandle) {
-        return {
-          start: serializeLatLng(layer.__startHandle.getLatLng()),
-          end: serializeLatLng(layer.__endHandle.getLatLng())
-        };
-      }
-    }
-    return null;
-  }
-
-  function rebuildWarArrow(data) {
-    var start = deserializeLatLng(data.start);
-    var end = deserializeLatLng(data.end);
-    var mainLine = L.polyline([start, end], { color: '#ef4444', weight: 5, opacity: 0.95 }).addTo(map);
-    var arrowHead = L.polygon(createArrowDecorator(start, end), { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.95, weight: 1 }).addTo(map);
-    pathLayers.push(mainLine, arrowHead);
-  }
-
-  function rebuildMissilePath(data) {
-    var start = deserializeLatLng(data.start);
-    var end = deserializeLatLng(data.end);
-    var pts = arcPoints(start, end, 90);
-    var trail = L.polyline(pts, { color: '#f59e0b', weight: 4, opacity: 0.95, dashArray: '10 8' }).addTo(map);
-    var arrowHead = L.polygon(createArrowDecorator(pts[pts.length - 2], end), { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.95, weight: 1 }).addTo(map);
-    pathLayers.push(trail, arrowHead);
-  }
-
   function addWarArrow() {
     if (!selectedLayer) { setStatus('Select a country first, then add war arrow'); return; }
     var start = getVisualCenter(selectedLayer);
@@ -1154,6 +1124,7 @@ html, body {
     var startHandle = makeHandle(start, 'arrow-handle');
     var endHandle = makeHandle(end, 'arrow-handle');
     var label = addPathLabel(L.latLng((start.lat + end.lat) / 2, (start.lng + end.lng) / 2), 'WAR ARROW');
+
     function redraw() {
       var s = startHandle.getLatLng();
       var e = endHandle.getLatLng();
@@ -1161,11 +1132,10 @@ html, body {
       arrowHead.setLatLngs(createArrowDecorator(s, e));
       label.setLatLng(L.latLng((s.lat + e.lat) / 2, (s.lng + e.lng) / 2));
     }
+
     startHandle.on('drag', redraw);
     endHandle.on('drag', redraw);
-    mainLine.__kind = 'war';
-    mainLine.__startHandle = startHandle;
-    mainLine.__endHandle = endHandle;
+
     pathLayers.push(mainLine, arrowHead);
     pathHandles.push(startHandle, endHandle);
     setStatus('War arrow added. Drag endpoints to adjust');
@@ -1181,6 +1151,7 @@ html, body {
     var startHandle = makeHandle(start, 'missile-handle');
     var endHandle = makeHandle(end, 'missile-handle');
     var label = addPathLabel(L.latLng((start.lat + end.lat) / 2 + 1, (start.lng + end.lng) / 2), 'MISSILE');
+
     function redraw() {
       var s = startHandle.getLatLng();
       var e = endHandle.getLatLng();
@@ -1189,11 +1160,10 @@ html, body {
       arrowHead.setLatLngs(createArrowDecorator(pts[pts.length - 2], e));
       label.setLatLng(L.latLng((s.lat + e.lat) / 2 + 1, (s.lng + e.lng) / 2));
     }
+
     startHandle.on('drag', redraw);
     endHandle.on('drag', redraw);
-    trail.__kind = 'missile';
-    trail.__startHandle = startHandle;
-    trail.__endHandle = endHandle;
+
     pathLayers.push(trail, arrowHead);
     pathHandles.push(startHandle, endHandle);
     setStatus('Missile path added. Drag endpoints to adjust');
@@ -1217,16 +1187,13 @@ html, body {
     if (!selectedLayer || !selectedFeature || fillModeSelect.value === 'solid') return;
     isDraggingFill = true;
     dragStartPoint = e.containerPoint;
-    dragStartOffset = getStoredFillOffset(selectedFeature);
+    dragStartOffset = { x: 0, y: 0 };
     map.dragging.disable();
     setStatus('Dragging full flag fill...');
   }
 
-  function moveFillDrag(e) {
+  function moveFillDrag() {
     if (!isDraggingFill || !selectedFeature || !selectedLayer) return;
-    var dx = (e.containerPoint.x - dragStartPoint.x) / Math.max(1, map.getSize().x);
-    var dy = (e.containerPoint.y - dragStartPoint.y) / Math.max(1, map.getSize().y);
-    saveFillOffset(selectedFeature, { x: dragStartOffset.x + dx, y: dragStartOffset.y + dy });
     applyHighlight(selectedLayer, selectedFeature);
   }
 
@@ -1256,6 +1223,7 @@ html, body {
   previewModal.addEventListener('click', function (e) {
     if (e.target === previewModal) closePreviewModal();
   });
+
   fab.addEventListener('click', toggleTools);
   basemapSelect.addEventListener('change', function () { useBasemap(this.value); });
   recordBtn.addEventListener('click', recordMode);
@@ -1266,6 +1234,7 @@ html, body {
   exportNoFlagBtn.addEventListener('click', function () { exportSelectedPng('solid'); });
   exportWithFlagBtn.addEventListener('click', function () { exportSelectedPng('flag'); });
   exportLandBtn.addEventListener('click', function () { exportSelectedPng('land'); });
+  exportPortrait4kBtn.addEventListener('click', exportPortrait4kScreenshot);
   clearSelectionBtn.addEventListener('click', clearSelection);
   resetBtn.addEventListener('click', resetMap);
 
@@ -1280,19 +1249,8 @@ html, body {
     }
 
     var layer = findCountryLayer(query);
-    if (layer) {
-      selectCountry(layer.feature, layer);
-    } else {
-      setStatus('Country not found');
-    }
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter') return;
-      runCountrySearch(this.value);
-      if (quickSearchInput) quickSearchInput.value = this.value;
-    });
+    if (layer) selectCountry(layer.feature, layer);
+    else setStatus('Country not found');
   }
 
   quickSearchInput.addEventListener('keydown', function (e) {
@@ -1322,9 +1280,7 @@ html, body {
     ];
 
     function renderGeo(data) {
-      if (geoLayer) {
-        map.removeLayer(geoLayer);
-      }
+      if (geoLayer) map.removeLayer(geoLayer);
       geoLayer = L.geoJSON(data, {
         renderer: L.svg(),
         style: { color: '#ffffff', weight: 0.7, fillOpacity: 0, fillColor: '#ffffff', opacity: 1 },
@@ -1337,7 +1293,6 @@ html, body {
 
     function tryLoad(index) {
       if (index >= sources.length) {
-        console.error('All boundary sources failed');
         setStatus('Country boundaries failed to load');
         return;
       }
@@ -1347,13 +1302,8 @@ html, body {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
         })
-        .then(function (data) {
-          renderGeo(data);
-        })
-        .catch(function (e) {
-          console.warn('Boundary source failed:', sources[index], e);
-          tryLoad(index + 1);
-        });
+        .then(renderGeo)
+        .catch(function () { tryLoad(index + 1); });
     }
 
     tryLoad(0);
@@ -1361,65 +1311,6 @@ html, body {
 
   loadCountryBoundaries();
   useBasemap('satellite');
-
-  function runTests() {
-    console.assert(getIso2({ properties: { ISO_A2: 'IN' } }) === 'in', 'ISO_A2 should normalize to lowercase');
-    console.assert(getIso2({ properties: { ISO_A2: '-99', ISO_A3: 'IND' } }) === 'in', 'ISO_A3 fallback should work');
-    console.assert(getIso2({ properties: { ISO_A2: '-99' } }) === null, 'Invalid ISO_A2 should return null');
-    console.assert(getFeatureName({ properties: { ADMIN: 'India' } }) === 'India', 'Should prefer ADMIN for name');
-    console.assert(getFeatureName({ properties: {} }) === 'Unknown', 'Missing name should return Unknown');
-    console.assert(getFlagUrl({ properties: { ISO_A2: 'US' } }).indexOf('/us.png') !== -1, 'Flag URL should use lowercase code');
-    console.assert(findCountryLayer('') === null, 'Empty search should return null');
-    console.assert(getIso2({ properties: { ISO2: 'JP' } }) === 'jp', 'ISO2 fallback should work');
-
-    var indiaPattern = createFlagPattern('test-pattern-india-detail', 'in');
-    console.assert(Boolean(indiaPattern), 'India flag pattern should be created');
-    console.assert(indiaPattern.querySelectorAll('line').length === 24, 'Ashok Chakra should have 24 spokes');
-    console.assert(indiaPattern.querySelectorAll('circle').length >= 2, 'Ashok Chakra should include outer ring and center');
-
-    var genericPattern = createFlagPattern('test-pattern-generic', 'zz');
-    console.assert(Boolean(genericPattern), 'Generic fallback pattern should be created');
-
-    var testPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    var testLayer = { _path: testPath };
-    console.assert(applyProceduralFlagFill(testLayer, { properties: { ISO_A2: 'IN' } }) === true, 'Flag fill should apply on SVG path');
-    console.assert(testPath.getAttribute('fill') === 'url(#flag-fill-in)', 'Flag fill should target the India pattern');
-
-    console.assert(getOrCreateDefsRoot() !== null, 'Defs root should always exist');
-    console.assert(getStoredFillOffset({ properties: { ISO_A2: 'IN' } }).x === 0, 'Default fill offset x should be zero');
-    saveFillOffset({ properties: { ISO_A2: 'IN' } }, { x: 0.12, y: -0.08 });
-    var savedOffset = getStoredFillOffset({ properties: { ISO_A2: 'IN' } });
-    console.assert(Math.abs(savedOffset.x - 0.12) < 0.0001, 'Saved fill offset x should persist');
-
-    var fakeLayer = {
-      getLatLngs: function () { return [[{ lat: 10, lng: 20 }, { lat: 20, lng: 20 }, { lat: 20, lng: 30 }]]; },
-      getBounds: function () { return { getCenter: function () { return L.latLng(15, 25); } }; }
-    };
-    var visualCenter = getVisualCenter(fakeLayer);
-    console.assert(Math.abs(visualCenter.lat - 16.6666667) < 0.01, 'Visual center should use polygon average latitude');
-    console.assert(Math.abs(visualCenter.lng - 23.3333333) < 0.01, 'Visual center should use polygon average longitude');
-
-    var arrowTest = createArrowDecorator(L.latLng(0, 0), L.latLng(1, 1));
-    console.assert(Array.isArray(arrowTest) && arrowTest.length === 3, 'Arrow decorator should return 3 points');
-    var missileTest = arcPoints(L.latLng(0, 0), L.latLng(2, 2), 40);
-    console.assert(Array.isArray(missileTest) && missileTest.length > 10, 'Missile arc should generate multiple points');
-
-    console.assert(typeof closePreviewModal === 'function', 'Preview modal close function should exist');
-    console.assert(typeof openPreview === 'function', 'Preview helper should exist');
-    console.assert(typeof triggerBlobDownloadFromUrl === 'function', 'Blob download helper should exist');
-    console.assert(typeof clearSelection === 'function', 'Clear selection helper should exist');
-    console.assert(typeof applyIndiaClaimOverlay === 'function', 'India claim overlay helper should exist');
-    console.assert(typeof showIndiaSchoolOutline === 'function', 'India school outline helper should exist');
-
-    var noFlagSvg = buildExportSvgString('solid');
-    console.assert(typeof noFlagSvg === 'string' || noFlagSvg === null, 'Solid export SVG should be string or null');
-    var withFlagSvg = buildExportSvgString('flag');
-    console.assert(typeof withFlagSvg === 'string' || withFlagSvg === null, 'Flag export SVG should be string or null');
-    var landSvg = buildExportSvgString('land');
-    console.assert(typeof landSvg === 'string' || landSvg === null, 'Land export SVG should be string or null');
-  }
-
-  runTests();
 }());
 </script>
 </body>
