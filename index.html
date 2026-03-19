@@ -23,7 +23,9 @@ html, body {
 #map {
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 50% 45%, rgba(30,64,175,.35), transparent 30%), linear-gradient(180deg, #020617 0%, #000 100%);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(30,64,175,.35), transparent 30%),
+    linear-gradient(180deg, #020617 0%, #000 100%);
 }
 .leaflet-control-container { display: none; }
 .fab {
@@ -221,13 +223,6 @@ html, body {
 .recording .search-chip {
   display: none !important;
 }
-.hidden-svg-host {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
 .path-label {
   color: #fff;
   font-size: 11px;
@@ -302,8 +297,7 @@ html, body {
   min-height: 320px;
 }
 .preview-body img,
-.preview-body iframe,
-.preview-body object {
+.preview-body iframe {
   max-width: 100%;
   max-height: 70vh;
   background: transparent;
@@ -313,19 +307,25 @@ html, body {
   font-size: 12px;
   padding: 0 14px 14px;
 }
+.hidden-export-stage {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 1080px;
+  height: 1920px;
+  opacity: 1;
+  pointer-events: none;
+  overflow: hidden;
+  background: #000;
+}
+.hidden-export-map {
+  width: 1080px;
+  height: 1920px;
+}
 .range-value {
   font-size: 11px;
   color: rgba(255,255,255,.65);
   margin-top: -4px;
-}
-.export-hint {
-  font-size: 11px;
-  color: rgba(255,255,255,.62);
-  line-height: 1.4;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.06);
-  padding: 10px 12px;
-  border-radius: 12px;
 }
 </style>
 </head>
@@ -353,11 +353,11 @@ html, body {
     <input type="range" min="1" max="6" step="0.5" value="2" id="borderSize" />
 
     <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Opacity</div>
-    <input type="range" min="0" max="0.8" step="0.05" value="0.35" id="fadeSlider" />
+    <input type="range" min="0" max="0.95" step="0.05" value="0.75" id="fadeSlider" />
 
     <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Flag Marker Size</div>
     <input type="range" min="20" max="120" step="2" value="34" id="flagSize" />
-    <div class="range-value" id="flagSizeValue">34px</div>
+    <div id="flagSizeValue" class="range-value">34px</div>
 
     <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Fill Mode</div>
     <select id="fillModeSelect">
@@ -384,12 +384,8 @@ html, body {
       </label>
       <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
         <input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
-        <span>Drag Full Flag Fill (touch-hold on phone)</span>
+        <span>Drag Full Flag Fill</span>
       </label>
-    </div>
-
-    <div class="export-hint">
-      9:16 export ab crop nahi karega. Pure map ko portrait frame me fit karega, isliye details cut nahi hongi aur output HD/4K rahega.
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -409,7 +405,6 @@ html, body {
 
   <div id="map"></div>
   <div class="status-pill" id="statusPill">Loading map...</div>
-  <div id="svgFallbackHost" class="hidden-svg-host"></div>
 
   <div id="previewModal" class="preview-modal">
     <div class="preview-card">
@@ -471,9 +466,10 @@ html, body {
   }).setView([20, 0], 3);
 
   var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 18,
+    maxZoom: 19,
     crossOrigin: true
   });
+
   var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd',
     maxZoom: 19,
@@ -482,6 +478,7 @@ html, body {
 
   var activeBaseLayer = null;
   var geoLayer = null;
+  var geoJsonData = null;
   var selectedLayer = null;
   var selectedFeature = null;
   var indiaSchoolOutlineLayer = null;
@@ -489,16 +486,15 @@ html, body {
   var flagMarker = null;
   var indiaClaimOverlay = null;
   var animationFrame = null;
-  var isDraggingFill = false;
   var pathLayers = [];
   var pathHandles = [];
   var pathLabels = [];
   var currentPreviewUrl = '';
   var currentPreviewFilename = '';
   var flagFillOffsets = {};
-  var currentPointerDown = null;
+  var isDraggingFill = false;
+  var pointerStart = null;
   var touchHoldTimer = null;
-  var touchDragStarted = false;
 
   function setStatus(message) {
     statusPill.textContent = message;
@@ -508,15 +504,57 @@ html, body {
     flagSizeValue.textContent = flagSizeInput.value + 'px';
   }
 
-  function getSelectedFeatureKey(feature) {
-    if (!feature) return 'default';
-    return (getIso2(feature) || getFeatureName(feature) || 'default').toLowerCase();
+  function getFeatureName(feature) {
+    if (!feature || !feature.properties) return 'Unknown';
+    return feature.properties.ADMIN || feature.properties.NAME || feature.properties.name || 'Unknown';
   }
 
-  function getCurrentFillOffset(feature) {
-    var key = getSelectedFeatureKey(feature);
+  function getIso2(feature) {
+    if (!feature || !feature.properties) return null;
+    var props = feature.properties;
+    var directCandidates = [props.ISO_A2, props.iso_a2, props.ISO2, props.iso2, props['ISO3166-1-Alpha-2'], props.iso3166_1_alpha_2];
+    for (var i = 0; i < directCandidates.length; i += 1) {
+      var raw = directCandidates[i];
+      if (!raw || raw === '-99') continue;
+      var normalized = String(raw).trim().toLowerCase();
+      if (/^[a-z]{2}$/.test(normalized)) return normalized;
+    }
+    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || '').trim().toUpperCase();
+    var a3ToA2 = {
+      IND: 'in', USA: 'us', CHN: 'cn', RUS: 'ru', FRA: 'fr', DEU: 'de', ITA: 'it', GBR: 'gb', BRA: 'br', JPN: 'jp', PAK: 'pk',
+      BGD: 'bd', TUR: 'tr', UKR: 'ua', ARG: 'ar', IDN: 'id', NLD: 'nl', POL: 'pl', IRL: 'ie', FIN: 'fi', ESP: 'es', PRT: 'pt',
+      BEL: 'be', CHE: 'ch', AUT: 'at', SWE: 'se', NOR: 'no', DNK: 'dk', GRC: 'gr', ISR: 'il', SAU: 'sa', ARE: 'ae', IRN: 'ir',
+      IRQ: 'iq', AFG: 'af', KOR: 'kr', PRK: 'kp', AUS: 'au', NZL: 'nz', CAN: 'ca', MEX: 'mx', ZAF: 'za', EGY: 'eg', ETH: 'et',
+      NGA: 'ng', KEN: 'ke', VNM: 'vn', THA: 'th', MMR: 'mm', LKA: 'lk', NPL: 'np', BTN: 'bt', MAR: 'ma', DZA: 'dz'
+    };
+    return a3ToA2[a3] || null;
+  }
+
+  function getFlagPngUrl(feature) {
+    var iso2 = getIso2(feature);
+    return iso2 ? ('https://flagcdn.com/w640/' + iso2 + '.png') : null;
+  }
+
+  function getFlagSvgUrl(feature) {
+    var iso2 = getIso2(feature);
+    return iso2 ? ('https://flagcdn.com/' + iso2 + '.svg') : null;
+  }
+
+  function getFeatureKey(feature) {
+    return (getIso2(feature) || getFeatureName(feature) || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  }
+
+  function getFillOffset(feature) {
+    var key = getFeatureKey(feature);
     if (!flagFillOffsets[key]) flagFillOffsets[key] = { x: 0, y: 0 };
     return flagFillOffsets[key];
+  }
+
+  function stopAnimation() {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
   }
 
   function hideIndiaSchoolOutline() {
@@ -565,80 +603,7 @@ html, body {
     app.classList.remove('recording');
   }
 
-  function getFeatureName(feature) {
-    if (!feature || !feature.properties) return 'Unknown';
-    return feature.properties.ADMIN || feature.properties.NAME || feature.properties.name || 'Unknown';
-  }
-
-  function getIso2(feature) {
-    if (!feature || !feature.properties) return null;
-    var props = feature.properties;
-    var directCandidates = [props.ISO_A2, props.iso_a2, props.ISO2, props.iso2, props['ISO3166-1-Alpha-2'], props.iso3166_1_alpha_2];
-    for (var i = 0; i < directCandidates.length; i += 1) {
-      var raw = directCandidates[i];
-      if (!raw || raw === '-99') continue;
-      var normalized = String(raw).trim().toLowerCase();
-      if (/^[a-z]{2}$/.test(normalized)) return normalized;
-    }
-    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || '').trim().toUpperCase();
-    var a3ToA2 = {
-      IND: 'in', USA: 'us', CHN: 'cn', RUS: 'ru', FRA: 'fr', DEU: 'de', ITA: 'it', GBR: 'gb', BRA: 'br', JPN: 'jp', PAK: 'pk',
-      BGD: 'bd', TUR: 'tr', UKR: 'ua', ARG: 'ar', IDN: 'id', NLD: 'nl', POL: 'pl', IRL: 'ie', FIN: 'fi', ESP: 'es', PRT: 'pt',
-      BEL: 'be', CHE: 'ch', AUT: 'at', SWE: 'se', NOR: 'no', DNK: 'dk', GRC: 'gr', ISR: 'il', SAU: 'sa', ARE: 'ae', IRN: 'ir',
-      IRQ: 'iq', AFG: 'af', KOR: 'kr', PRK: 'kp', AUS: 'au', NZL: 'nz', CAN: 'ca', MEX: 'mx', ZAF: 'za', EGY: 'eg', ETH: 'et',
-      NGA: 'ng', KEN: 'ke', VNM: 'vn', THA: 'th', MMR: 'mm', LKA: 'lk', NPL: 'np', BTN: 'bt', MAR: 'ma', DZA: 'dz'
-    };
-    return a3ToA2[a3] || null;
-  }
-
-  function getFlagPngUrl(feature) {
-    var iso2 = getIso2(feature);
-    return iso2 ? ('https://flagcdn.com/w640/' + iso2 + '.png') : null;
-  }
-
-  function getFlagSvgUrl(feature) {
-    var iso2 = getIso2(feature);
-    return iso2 ? ('https://flagcdn.com/' + iso2 + '.svg') : null;
-  }
-
-  function clearMarkers() {
-    if (labelMarker) { map.removeLayer(labelMarker); labelMarker = null; }
-    if (flagMarker) { map.removeLayer(flagMarker); flagMarker = null; }
-    if (indiaClaimOverlay) { map.removeLayer(indiaClaimOverlay); indiaClaimOverlay = null; }
-  }
-
-  function clearPaths() {
-    pathLayers.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathHandles.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathLabels.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathLayers = [];
-    pathHandles = [];
-    pathLabels = [];
-    setStatus('All arrows and missile paths cleared');
-  }
-
-  function stopAnimation() {
-    if (animationFrame) {
-      cancelAnimationFrame(animationFrame);
-      animationFrame = null;
-    }
-  }
-
-  function resetLayerStyles() {
-    stopAnimation();
-    if (!geoLayer) return;
-    geoLayer.eachLayer(function (layer) {
-      layer.setStyle({ color: '#ffffff', weight: 0.7, fillOpacity: 0, fillColor: '#ffffff', opacity: 1 });
-      if (layer._path) {
-        layer._path.removeAttribute('fill');
-        layer._path.style.fill = 'transparent';
-        layer._path.style.fillOpacity = '0';
-        layer._path.style.filter = 'none';
-      }
-    });
-  }
-
-  function ensureSvgDefs() {
+  function ensureMainSvgDefs() {
     var svg = map.getPanes().overlayPane.querySelector('svg');
     if (!svg) return null;
     var defs = svg.querySelector('defs');
@@ -649,96 +614,76 @@ html, body {
     return defs;
   }
 
-  function createSvgPatternForMap(layer, feature) {
+  function clearLayerFlagFill(layer) {
+    if (!layer) return;
+    if (layer._flagImageEl && layer._flagImageEl.parentNode) layer._flagImageEl.parentNode.removeChild(layer._flagImageEl);
+    if (layer._flagClipEl && layer._flagClipEl.parentNode) layer._flagClipEl.parentNode.removeChild(layer._flagClipEl);
+    layer._flagImageEl = null;
+    layer._flagClipEl = null;
+    if (layer._path) {
+      layer._path.style.fill = 'transparent';
+      layer._path.removeAttribute('fill');
+      layer._path.style.fillOpacity = '0';
+    }
+  }
+
+  function clearAllFlagFills() {
+    if (!geoLayer) return;
+    geoLayer.eachLayer(function (layer) {
+      clearLayerFlagFill(layer);
+    });
+    if (indiaClaimOverlay) clearLayerFlagFill(indiaClaimOverlay);
+  }
+
+  function createFlagClipFill(layer, feature) {
     if (!layer || !layer._path) return false;
     var flagUrl = getFlagSvgUrl(feature);
     if (!flagUrl) return false;
 
-    var defs = ensureSvgDefs();
+    var defs = ensureMainSvgDefs();
     if (!defs) return false;
 
+    clearLayerFlagFill(layer);
+
     var bbox = layer._path.getBBox();
-    if (!bbox || !isFinite(bbox.width) || !bbox.width || !bbox.height) return false;
+    if (!bbox || !bbox.width || !bbox.height) return false;
 
-    var key = getSelectedFeatureKey(feature);
-    var patternId = 'flag-fill-' + key;
-    var existing = document.getElementById(patternId);
-    if (existing) existing.remove();
+    var key = getFeatureKey(feature);
+    var offset = getFillOffset(feature);
+    var clipId = 'clip-' + key + '-' + Date.now();
 
-    var offset = getCurrentFillOffset(feature);
+    var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    clipPath.setAttribute('id', clipId);
 
-    var pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
-    pattern.setAttribute('id', patternId);
-    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
-    pattern.setAttribute('patternContentUnits', 'userSpaceOnUse');
-    pattern.setAttribute('x', String(bbox.x + offset.x));
-    pattern.setAttribute('y', String(bbox.y + offset.y));
-    pattern.setAttribute('width', String(bbox.width));
-    pattern.setAttribute('height', String(bbox.height));
+    var pathClone = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathClone.setAttribute('d', layer._path.getAttribute('d'));
+    clipPath.appendChild(pathClone);
+    defs.appendChild(clipPath);
 
-    var image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-    image.setAttribute('x', String(bbox.x + offset.x));
-    image.setAttribute('y', String(bbox.y + offset.y));
-    image.setAttribute('width', String(bbox.width));
-    image.setAttribute('height', String(bbox.height));
-    image.setAttribute('preserveAspectRatio', 'none');
-    image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
-    image.setAttribute('href', flagUrl);
-    image.setAttribute('crossorigin', 'anonymous');
+    var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
+    img.setAttribute('href', flagUrl);
+    img.setAttribute('x', String(bbox.x + offset.x));
+    img.setAttribute('y', String(bbox.y + offset.y));
+    img.setAttribute('width', String(bbox.width));
+    img.setAttribute('height', String(bbox.height));
+    img.setAttribute('preserveAspectRatio', 'none');
+    img.setAttribute('clip-path', 'url(#' + clipId + ')');
+    img.setAttribute('opacity', String(Number(fadeSliderInput.value)));
+    img.style.pointerEvents = 'none';
 
-    pattern.appendChild(image);
-    defs.appendChild(pattern);
-
-    layer._path.setAttribute('fill', 'url(#' + patternId + ')');
-    layer._path.style.fill = 'url(#' + patternId + ')';
-    layer._path.style.fillOpacity = String(Number(fadeSliderInput.value));
+    layer._path.parentNode.insertBefore(img, layer._path);
+    layer._path.style.fill = 'transparent';
+    layer._path.style.fillOpacity = '0';
+    layer._flagImageEl = img;
+    layer._flagClipEl = clipPath;
     return true;
   }
 
-  function animateSelectedLayer() {
-    stopAnimation();
-    if (!selectedLayer || !selectedLayer._path) return;
-    var start = null;
-    function tick(ts) {
-      if (!start) start = ts;
-      if (!selectedLayer || !selectedLayer._path) return;
-      var progress = (ts - start) / 1000;
-      var wave = 0.45 + ((Math.sin(progress * 4) + 1) / 2) * 0.35;
-      selectedLayer._path.style.fillOpacity = String(wave);
-      animationFrame = requestAnimationFrame(tick);
-    }
-    animationFrame = requestAnimationFrame(tick);
-  }
-
-  function getVisualCenter(layer) {
-    var latlngs = layer.getLatLngs();
-    if (!latlngs || !latlngs.length) return layer.getBounds().getCenter();
-    var points = [];
-    (function flatten(input) {
-      for (var i = 0; i < input.length; i += 1) {
-        if (Array.isArray(input[i])) flatten(input[i]);
-        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') points.push(input[i]);
-      }
-    }(latlngs));
-    if (!points.length) return layer.getBounds().getCenter();
-    var sumLat = 0, sumLng = 0;
-    for (var j = 0; j < points.length; j += 1) {
-      sumLat += points[j].lat;
-      sumLng += points[j].lng;
-    }
-    return L.latLng(sumLat / points.length, sumLng / points.length);
-  }
-
-  function selectCountry(feature, layer) {
-    if (!feature || !layer) return;
-    selectedLayer = layer;
-    selectedFeature = feature;
-    getCurrentFillOffset(feature);
-    var bounds = layer.getBounds();
-    if (bounds && bounds.isValid && bounds.isValid()) {
-      map.flyToBounds(bounds, { duration: 1.5, padding: [60, 60] });
-    }
-    setTimeout(function () { applyHighlight(layer, feature); }, 220);
+  function clearMarkers() {
+    if (labelMarker) { map.removeLayer(labelMarker); labelMarker = null; }
+    if (flagMarker) { map.removeLayer(flagMarker); flagMarker = null; }
+    if (indiaClaimOverlay) { clearLayerFlagFill(indiaClaimOverlay); map.removeLayer(indiaClaimOverlay); indiaClaimOverlay = null; }
   }
 
   function addFlag(feature, layer) {
@@ -751,7 +696,7 @@ html, body {
       icon: L.divIcon({
         className: '',
         html:
-          '<div style="background:rgba(0,0,0,.7);border-radius:8px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.35);display:inline-flex;">' +
+          '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.35);">' +
           '<img src="' + flagUrl + '" alt="flag" crossorigin="anonymous" style="width:' + flagSize + 'px;height:auto;border-radius:4px;display:block;">' +
           '</div>'
       })
@@ -759,7 +704,6 @@ html, body {
   }
 
   function addLabel(feature, layer) {
-    clearMarkers();
     if (labelToggle.checked) {
       var center = layer.getBounds().getCenter();
       labelMarker = L.marker(L.latLng(center.lat - 4, center.lng), {
@@ -793,14 +737,50 @@ html, body {
       smoothFactor: 0
     }).addTo(map);
 
-    if (fillMode !== 'solid' && indiaClaimOverlay._path) {
-      createSvgPatternForMap(indiaClaimOverlay, feature);
-      indiaClaimOverlay._path.style.fillOpacity = String(opacity);
+    if (fillMode !== 'solid') {
+      setTimeout(function () {
+        createFlagClipFill(indiaClaimOverlay, feature);
+      }, 0);
     }
+  }
+
+  function animateSelectedLayer() {
+    stopAnimation();
+    if (!selectedLayer) return;
+    var start = null;
+    function tick(ts) {
+      if (!start) start = ts;
+      if (!selectedLayer) return;
+      var progress = (ts - start) / 1000;
+      var wave = 0.45 + ((Math.sin(progress * 4) + 1) / 2) * 0.35;
+      if (selectedLayer._flagImageEl) selectedLayer._flagImageEl.setAttribute('opacity', String(wave));
+      if (indiaClaimOverlay && indiaClaimOverlay._flagImageEl) indiaClaimOverlay._flagImageEl.setAttribute('opacity', String(wave));
+      animationFrame = requestAnimationFrame(tick);
+    }
+    animationFrame = requestAnimationFrame(tick);
+  }
+
+  function resetLayerStyles() {
+    stopAnimation();
+    clearAllFlagFills();
+    if (!geoLayer) return;
+    geoLayer.eachLayer(function (layer) {
+      layer.setStyle({
+        color: '#ffffff',
+        weight: 0.7,
+        fillOpacity: 0,
+        fillColor: '#ffffff',
+        opacity: 1
+      });
+      if (layer._path) {
+        layer._path.style.filter = 'none';
+      }
+    });
   }
 
   function applyHighlight(layer, feature) {
     if (!geoLayer || !layer || !feature) return;
+
     var color = borderColorInput.value;
     var size = Number(borderSizeInput.value);
     var opacity = Number(fadeSliderInput.value);
@@ -809,26 +789,46 @@ html, body {
     resetLayerStyles();
     clearMarkers();
 
-    layer.setStyle({ color: color, weight: size, fillColor: color, fillOpacity: opacity, opacity: 1 });
+    layer.setStyle({
+      color: color,
+      weight: size,
+      fillColor: color,
+      fillOpacity: fillMode === 'solid' ? opacity : 0,
+      opacity: 1
+    });
+
     addLabel(feature, layer);
 
-    if (fillMode === 'solid') {
+    if (fillMode !== 'solid') {
+      setTimeout(function () {
+        var ok = createFlagClipFill(layer, feature);
+        if (!ok) {
+          layer.setStyle({ fillColor: color, fillOpacity: opacity });
+        }
+        applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
+        if (fillMode === 'pulseFlag') animateSelectedLayer();
+      }, 0);
+    } else {
       applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-      setStatus(getFeatureName(feature) + ' selected');
-      return;
     }
 
-    var ok = createSvgPatternForMap(layer, feature);
-    if (!ok) {
-      layer.setStyle({ fillColor: color, fillOpacity: opacity });
-      applyIndiaClaimOverlay(feature, 'solid', color, size, opacity);
-      setStatus('Flag fill unavailable for ' + getFeatureName(feature) + '. Using solid color');
-      return;
-    }
-
-    applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-    if (fillMode === 'pulseFlag') animateSelectedLayer();
     setStatus(getFeatureName(feature) + ' selected');
+  }
+
+  function selectCountry(feature, layer) {
+    if (!feature || !layer) return;
+    selectedLayer = layer;
+    selectedFeature = feature;
+    getFillOffset(feature);
+
+    var bounds = layer.getBounds();
+    if (bounds && bounds.isValid && bounds.isValid()) {
+      map.flyToBounds(bounds, { duration: 1.3, padding: [60, 60] });
+    }
+
+    setTimeout(function () {
+      applyHighlight(layer, feature);
+    }, 220);
   }
 
   function clearSelection() {
@@ -837,6 +837,16 @@ html, body {
     selectedLayer = null;
     selectedFeature = null;
     setStatus('Selection cleared');
+  }
+
+  function clearPaths() {
+    pathLayers.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathHandles.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathLabels.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
+    pathLayers = [];
+    pathHandles = [];
+    pathLabels = [];
+    setStatus('All arrows and missile paths cleared');
   }
 
   function resetMap() {
@@ -912,45 +922,16 @@ html, body {
     });
   }
 
-  function pointInPolygon(point, vs) {
-    var x = point.x, y = point.y;
-    var inside = false;
-    for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-      var xi = vs[i].x, yi = vs[i].y;
-      var xj = vs[j].x, yj = vs[j].y;
-      var intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-9) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-  function flattenPoints(input, result) {
-    if (!Array.isArray(input)) return;
-    if (input.length && input[0] && typeof input[0].lat === 'number' && typeof input[0].lng === 'number') {
-      result.push(input);
-      return;
-    }
-    for (var i = 0; i < input.length; i += 1) {
-      flattenPoints(input[i], result);
-    }
-  }
-
   function buildProjectedGeometryFromLayer(layer) {
-    var raw = layer.getLatLngs();
-    if (!raw || !raw.length) return { polygons: [], bounds: null };
+    if (!layer) return { polygons: [], bounds: null };
+    var latlngs = layer.getLatLngs();
+    if (!latlngs || !latlngs.length) return { polygons: [], bounds: null };
 
-    function isRing(arr) {
-      return Array.isArray(arr) && arr.length && arr[0] && typeof arr[0].lat === 'number' && typeof arr[0].lng === 'number';
+    function isPoint(v) {
+      return v && typeof v.lat === 'number' && typeof v.lng === 'number';
     }
 
-    var bounds = {
-      minX: Infinity,
-      minY: Infinity,
-      maxX: -Infinity,
-      maxY: -Infinity
-    };
-
-    function projectRing(ring) {
+    function ringToPoints(ring, bounds) {
       return ring.map(function (latlng) {
         var pt = map.latLngToLayerPoint(latlng);
         bounds.minX = Math.min(bounds.minX, pt.x);
@@ -961,23 +942,28 @@ html, body {
       });
     }
 
-    var polygons = [];
-
-    if (isRing(raw[0])) {
-      polygons.push([projectRing(raw)]);
-    } else {
-      for (var i = 0; i < raw.length; i += 1) {
-        if (isRing(raw[i])) {
-          polygons.push([projectRing(raw[i])]);
-        } else if (Array.isArray(raw[i])) {
-          var polygonRings = [];
-          for (var j = 0; j < raw[i].length; j += 1) {
-            if (isRing(raw[i][j])) polygonRings.push(projectRing(raw[i][j]));
-          }
-          if (polygonRings.length) polygons.push(polygonRings);
+    function parse(input, out, bounds) {
+      if (!Array.isArray(input) || !input.length) return;
+      if (isPoint(input[0])) {
+        out.push([ringToPoints(input, bounds)]);
+        return;
+      }
+      if (Array.isArray(input[0]) && input[0].length && isPoint(input[0][0])) {
+        var polygon = [];
+        for (var i = 0; i < input.length; i += 1) {
+          polygon.push(ringToPoints(input[i], bounds));
         }
+        out.push(polygon);
+        return;
+      }
+      for (var j = 0; j < input.length; j += 1) {
+        parse(input[j], out, bounds);
       }
     }
+
+    var bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    var polygons = [];
+    parse(latlngs, polygons, bounds);
 
     if (!isFinite(bounds.minX)) return { polygons: [], bounds: null };
     return { polygons: polygons, bounds: bounds };
@@ -985,12 +971,7 @@ html, body {
 
   function mergeProjectedGeometries(geometries) {
     var polygons = [];
-    var bounds = {
-      minX: Infinity,
-      minY: Infinity,
-      maxX: -Infinity,
-      maxY: -Infinity
-    };
+    var bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
     geometries.forEach(function (geom) {
       if (!geom || !geom.polygons || !geom.polygons.length || !geom.bounds) return;
@@ -1009,10 +990,10 @@ html, body {
     ctx.beginPath();
     geometry.polygons.forEach(function (polygon) {
       polygon.forEach(function (ring) {
-        ring.forEach(function (pt, idx) {
+        ring.forEach(function (pt, index) {
           var x = pt.x - offsetX;
           var y = pt.y - offsetY;
-          if (idx === 0) ctx.moveTo(x, y);
+          if (index === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
         ctx.closePath();
@@ -1020,23 +1001,24 @@ html, body {
     });
   }
 
-  function collectOuterRingsForMask(geometry, offsetX, offsetY) {
-    var outers = [];
-    geometry.polygons.forEach(function (polygon) {
-      if (!polygon.length) return;
-      var ring = polygon[0].map(function (pt) {
-        return { x: pt.x - offsetX, y: pt.y - offsetY };
-      });
-      outers.push(ring);
-    });
-    return outers;
-  }
+  function createLandTexture(ctx, width, height) {
+    var grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#d4b483');
+    grad.addColorStop(0.5, '#c19a63');
+    grad.addColorStop(1, '#9a7548');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
 
-  function isInsideCountryShape(point, outerRings) {
-    for (var i = 0; i < outerRings.length; i += 1) {
-      if (pointInPolygon(point, outerRings[i])) return true;
+    for (var i = 0; i < 18000; i += 1) {
+      var x = Math.random() * width;
+      var y = Math.random() * height;
+      var a = 0.04 + Math.random() * 0.05;
+      var r = 0.5 + Math.random() * 1.2;
+      ctx.fillStyle = 'rgba(60,35,15,' + a + ')';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
-    return false;
   }
 
   async function exportSelectedPng(exportMode) {
@@ -1062,8 +1044,8 @@ html, body {
     var height = Math.max(1, bounds.maxY - bounds.minY);
     var exportWidth = width + padding * 2;
     var exportHeight = height + padding * 2;
-    var maxSide = 2048;
-    var scale = Math.min(maxSide / exportWidth, maxSide / exportHeight, 1.8);
+    var maxSide = 2500;
+    var scale = Math.min(maxSide / exportWidth, maxSide / exportHeight, 2.2);
 
     var canvas = document.createElement('canvas');
     canvas.width = Math.max(2, Math.round(exportWidth * scale));
@@ -1085,8 +1067,7 @@ html, body {
       ctx.fillStyle = borderColorInput.value;
       ctx.fillRect(0, 0, exportWidth, exportHeight);
     } else if (exportMode === 'land') {
-      ctx.fillStyle = '#bfa46f';
-      ctx.fillRect(0, 0, exportWidth, exportHeight);
+      createLandTexture(ctx, exportWidth, exportHeight);
     } else if (exportMode === 'flag') {
       var flagUrl = getFlagPngUrl(selectedFeature);
       if (!flagUrl) {
@@ -1102,23 +1083,8 @@ html, body {
         }
       }
     }
-    ctx.restore();
 
-    if (exportMode === 'land') {
-      var outerRings = collectOuterRingsForMask(geometry, offsetX, offsetY);
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.06)';
-      for (var gx = 8; gx < exportWidth; gx += 14) {
-        for (var gy = 8; gy < exportHeight; gy += 14) {
-          if (isInsideCountryShape({ x: gx, y: gy }, outerRings)) {
-            ctx.beginPath();
-            ctx.arc(gx, gy, 1.1, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      }
-      ctx.restore();
-    }
+    ctx.restore();
 
     ctx.save();
     ctx.lineJoin = 'round';
@@ -1130,74 +1096,232 @@ html, body {
     ctx.restore();
 
     var pngUrl = canvas.toDataURL('image/png');
-    var modeSuffix = exportMode === 'flag' ? '_flag_transparent.png' : exportMode === 'land' ? '_land_transparent.png' : '_solid_transparent.png';
-    var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + modeSuffix;
+    var suffix = exportMode === 'flag' ? '_flag_transparent.png' :
+                 exportMode === 'land' ? '_land_transparent.png' :
+                 '_solid_transparent.png';
 
+    var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + suffix;
     openPreview(pngUrl, filename, 'png');
     setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
     setStatus('PNG ready');
   }
 
-  function exportPortrait4kScreenshot() {
-    var mapEl = document.getElementById('map');
-    if (!mapEl) {
-      setStatus('Map not found');
-      return;
-    }
+  function applyHighlightOnExternalMap(targetMap, layer, feature, defsRoot, options) {
+    var color = options.color;
+    var size = options.size;
+    var opacity = options.opacity;
+    var fillMode = options.fillMode;
+    var offset = options.offset || { x: 0, y: 0 };
 
-    var previousRecordingState = app.classList.contains('recording');
-    app.classList.add('recording');
-    setStatus('Preparing 9:16 4K screenshot...');
+    layer.setStyle({
+      color: color,
+      weight: size,
+      fillColor: color,
+      fillOpacity: fillMode === 'solid' ? opacity : 0,
+      opacity: 1
+    });
+
+    if (fillMode === 'solid') return;
 
     setTimeout(function () {
-      html2canvas(mapEl, {
+      if (!layer._path) return;
+      var bbox = layer._path.getBBox();
+      if (!bbox || !bbox.width || !bbox.height) return;
+
+      var clipId = 'export-clip-' + Math.random().toString(36).slice(2);
+      var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      clipPath.setAttribute('id', clipId);
+
+      var clone = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      clone.setAttribute('d', layer._path.getAttribute('d'));
+      clipPath.appendChild(clone);
+      defsRoot.appendChild(clipPath);
+
+      var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      var flagUrl = getFlagSvgUrl(feature);
+      if (!flagUrl) return;
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
+      img.setAttribute('href', flagUrl);
+      img.setAttribute('x', String(bbox.x + offset.x));
+      img.setAttribute('y', String(bbox.y + offset.y));
+      img.setAttribute('width', String(bbox.width));
+      img.setAttribute('height', String(bbox.height));
+      img.setAttribute('preserveAspectRatio', 'none');
+      img.setAttribute('clip-path', 'url(#' + clipId + ')');
+      img.setAttribute('opacity', String(opacity));
+      img.style.pointerEvents = 'none';
+      layer._path.parentNode.insertBefore(img, layer._path);
+      layer._path.style.fill = 'transparent';
+      layer._path.style.fillOpacity = '0';
+    }, 0);
+  }
+
+  function waitForTileLayer(layer, timeout) {
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        try { layer.off('load', finish); } catch (e) {}
+        resolve();
+      }
+      layer.on('load', finish);
+      setTimeout(finish, timeout || 3500);
+    });
+  }
+
+  async function exportPortrait4kScreenshot() {
+    var stage = document.createElement('div');
+    stage.className = 'hidden-export-stage';
+
+    var exportMapEl = document.createElement('div');
+    exportMapEl.className = 'hidden-export-map';
+    stage.appendChild(exportMapEl);
+    document.body.appendChild(stage);
+
+    setStatus('Preparing true-detail 9:16 export...');
+
+    try {
+      var exportMap = L.map(exportMapEl, {
+        zoomControl: false,
+        attributionControl: false,
+        preferCanvas: false,
+        renderer: L.svg(),
+        zoomSnap: 0.25
+      });
+
+      var activeType = basemapSelect.value;
+      var exportBaseLayer = null;
+
+      if (activeType === 'indiaOutline') {
+        exportMapEl.style.background = '#000';
+        L.imageOverlay('india-political-map.png', L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]), {
+          opacity: 1,
+          interactive: false,
+          crossOrigin: 'anonymous'
+        }).addTo(exportMap);
+      } else {
+        exportBaseLayer = activeType === 'dark'
+          ? L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+              subdomains: 'abcd',
+              maxZoom: 19,
+              crossOrigin: true
+            })
+          : L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+              maxZoom: 19,
+              crossOrigin: true
+            });
+
+        exportBaseLayer.addTo(exportMap);
+      }
+
+      var center = map.getCenter();
+      var zoom = map.getZoom();
+
+      exportMap.setView(center, Math.min(zoom + 1, 8), { animate: false });
+
+      if (selectedLayer) {
+        var b = selectedLayer.getBounds();
+        exportMap.fitBounds(b, { padding: [180, 300], animate: false });
+      }
+
+      var selectedCopyLayer = null;
+      if (selectedFeature) {
+        selectedCopyLayer = L.geoJSON(selectedFeature, {
+          renderer: L.svg(),
+          style: {
+            color: borderColorInput.value,
+            weight: Number(borderSizeInput.value),
+            fillColor: borderColorInput.value,
+            fillOpacity: fillModeSelect.value === 'solid' ? Number(fadeSliderInput.value) : 0,
+            opacity: 1
+          }
+        }).addTo(exportMap);
+      }
+
+      exportMap.invalidateSize();
+
+      if (exportBaseLayer) {
+        await waitForTileLayer(exportBaseLayer, 4500);
+      } else {
+        await new Promise(function (r) { setTimeout(r, 800); });
+      }
+
+      if (selectedCopyLayer && fillModeSelect.value !== 'solid') {
+        var svg = exportMap.getPanes().overlayPane.querySelector('svg');
+        var defs = svg.querySelector('defs');
+        if (!defs) {
+          defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          svg.insertBefore(defs, svg.firstChild);
+        }
+
+        selectedCopyLayer.eachLayer(function (layer) {
+          applyHighlightOnExternalMap(exportMap, layer, selectedFeature, defs, {
+            color: borderColorInput.value,
+            size: Number(borderSizeInput.value),
+            opacity: Number(fadeSliderInput.value),
+            fillMode: fillModeSelect.value,
+            offset: getFillOffset(selectedFeature)
+          });
+        });
+      }
+
+      await new Promise(function (r) { setTimeout(r, 1200); });
+
+      var sourceCanvas = await html2canvas(exportMapEl, {
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#000000',
         logging: false,
-        scale: 4,
+        scale: 2,
         imageTimeout: 20000
-      }).then(function (sourceCanvas) {
-        var targetWidth = 2160;
-        var targetHeight = 3840;
-        var targetCanvas = document.createElement('canvas');
-        targetCanvas.width = targetWidth;
-        targetCanvas.height = targetHeight;
-        var ctx = targetCanvas.getContext('2d');
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-        var sourceWidth = sourceCanvas.width;
-        var sourceHeight = sourceCanvas.height;
-        var scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
-        var drawWidth = sourceWidth * scale;
-        var drawHeight = sourceHeight * scale;
-        var drawX = (targetWidth - drawWidth) / 2;
-        var drawY = (targetHeight - drawHeight) / 2;
-
-        ctx.drawImage(sourceCanvas, drawX, drawY, drawWidth, drawHeight);
-
-        var pngUrl = targetCanvas.toDataURL('image/png');
-        var filename = 'map_9x16_4k_full_detail.png';
-
-        openPreview(pngUrl, filename, 'png');
-        setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
-
-        if (!previousRecordingState) app.classList.remove('recording');
-        setStatus('9:16 4K screenshot ready');
-      }).catch(function () {
-        if (!previousRecordingState) app.classList.remove('recording');
-        setStatus('9:16 screenshot export failed');
       });
-    }, 180);
+
+      var targetCanvas = document.createElement('canvas');
+      targetCanvas.width = 2160;
+      targetCanvas.height = 3840;
+      var ctx = targetCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+
+      var pngUrl = targetCanvas.toDataURL('image/png');
+      var filename = 'map_9x16_true_detail_4k.png';
+      openPreview(pngUrl, filename, 'png');
+      setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
+      setStatus('9:16 4K export ready');
+      exportMap.remove();
+      stage.remove();
+    } catch (error) {
+      console.error(error);
+      stage.remove();
+      setStatus('9:16 export failed');
+    }
   }
 
   function recordMode() {
     app.classList.add('recording');
+  }
+
+  function getVisualCenter(layer) {
+    var latlngs = layer.getLatLngs();
+    if (!latlngs || !latlngs.length) return layer.getBounds().getCenter();
+    var points = [];
+    (function flatten(input) {
+      for (var i = 0; i < input.length; i += 1) {
+        if (Array.isArray(input[i])) flatten(input[i]);
+        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') points.push(input[i]);
+      }
+    }(latlngs));
+    if (!points.length) return layer.getBounds().getCenter();
+    var sumLat = 0, sumLng = 0;
+    for (var j = 0; j < points.length; j += 1) {
+      sumLat += points[j].lat;
+      sumLng += points[j].lng;
+    }
+    return L.latLng(sumLat / points.length, sumLng / points.length);
   }
 
   function makeHandle(latlng, className) {
@@ -1310,37 +1434,50 @@ html, body {
     return found;
   }
 
-  function canStartFlagDrag() {
+  function runCountrySearch(query) {
+    var normalized = String(query || '').trim().toLowerCase();
+    if (!normalized) return;
+
+    if (basemapSelect.value === 'indiaOutline' && (normalized === 'india' || normalized === 'bharat')) {
+      map.setView([22.8, 81.2], 4.6, { animate: true });
+      setStatus('India outline focused');
+      return;
+    }
+
+    var layer = findCountryLayer(query);
+    if (layer) selectCountry(layer.feature, layer);
+    else setStatus('Country not found');
+  }
+
+  function canStartFillDrag() {
     return !!(dragFillToggle.checked && selectedLayer && selectedFeature && fillModeSelect.value !== 'solid');
   }
 
-  function startFlagDrag(point) {
-    if (!canStartFlagDrag()) return;
+  function startFillDrag(point) {
+    if (!canStartFillDrag()) return;
     isDraggingFill = true;
-    currentPointerDown = point;
-    touchDragStarted = true;
+    pointerStart = point;
     map.dragging.disable();
-    setStatus('Dragging full flag fill...');
+    setStatus('Dragging flag fill...');
   }
 
-  function moveFlagDrag(point) {
-    if (!isDraggingFill || !selectedFeature || !selectedLayer || !currentPointerDown) return;
-    var dx = point.x - currentPointerDown.x;
-    var dy = point.y - currentPointerDown.y;
-    currentPointerDown = point;
-
-    var offset = getCurrentFillOffset(selectedFeature);
+  function moveFillDrag(point) {
+    if (!isDraggingFill || !selectedFeature || !pointerStart) return;
+    var dx = point.x - pointerStart.x;
+    var dy = point.y - pointerStart.y;
+    pointerStart = point;
+    var offset = getFillOffset(selectedFeature);
     offset.x += dx;
     offset.y += dy;
     applyHighlight(selectedLayer, selectedFeature);
   }
 
-  function endFlagDrag() {
+  function endFillDrag() {
     if (!isDraggingFill) return;
     isDraggingFill = false;
-    currentPointerDown = null;
+    pointerStart = null;
     map.dragging.enable();
-    setStatus('Flag fill position saved for ' + getFeatureName(selectedFeature));
+    setStatus('Flag fill adjusted');
   }
 
   function clearTouchHoldTimer() {
@@ -1349,14 +1486,6 @@ html, body {
       touchHoldTimer = null;
     }
   }
-
-  satelliteLayer.on('tileerror', function () {
-    if (basemapSelect.value === 'satellite') {
-      basemapSelect.value = 'dark';
-      useBasemap('dark');
-      setStatus('Satellite failed. Switched to dark fallback map');
-    }
-  });
 
   previewCloseBtn.addEventListener('click', closePreviewModal);
   previewDownloadBtn.addEventListener('click', function () {
@@ -1384,21 +1513,6 @@ html, body {
   clearSelectionBtn.addEventListener('click', clearSelection);
   resetBtn.addEventListener('click', resetMap);
 
-  function runCountrySearch(query) {
-    var normalized = String(query || '').trim().toLowerCase();
-    if (!normalized) return;
-
-    if (basemapSelect.value === 'indiaOutline' && (normalized === 'india' || normalized === 'bharat')) {
-      map.setView([22.8, 81.2], 4.6, { animate: true });
-      setStatus('India outline focused');
-      return;
-    }
-
-    var layer = findCountryLayer(query);
-    if (layer) selectCountry(layer.feature, layer);
-    else setStatus('Country not found');
-  }
-
   quickSearchInput.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     runCountrySearch(this.value);
@@ -1411,74 +1525,79 @@ html, body {
   ['fillModeSelect', 'borderColor', 'borderSize', 'fadeSlider', 'labelToggle', 'flagToggle', 'dragFillToggle', 'flagSize'].forEach(function (id) {
     var eventName = (id === 'borderColor' || id === 'borderSize' || id === 'fadeSlider' || id === 'flagSize') ? 'input' : 'change';
     document.getElementById(id).addEventListener(eventName, function () {
-      if (id === 'flagSize') updateFlagSizeLabel();
+      updateFlagSizeLabel();
       if (selectedLayer && selectedFeature) applyHighlight(selectedLayer, selectedFeature);
     });
   });
 
   map.on('mousedown', function (e) {
-    if (!canStartFlagDrag()) return;
-    startFlagDrag(e.containerPoint);
+    if (!canStartFillDrag()) return;
+    startFillDrag(e.containerPoint);
   });
 
   map.on('mousemove', function (e) {
     if (!isDraggingFill) return;
-    moveFlagDrag(e.containerPoint);
+    moveFillDrag(e.containerPoint);
   });
 
-  map.on('mouseup', function () {
-    endFlagDrag();
-  });
+  map.on('mouseup', endFillDrag);
+  map.on('mouseout', endFillDrag);
 
-  map.on('mouseout', function () {
-    endFlagDrag();
-  });
-
-  var mapContainer = map.getContainer();
-
-  mapContainer.addEventListener('touchstart', function (evt) {
-    if (!canStartFlagDrag()) return;
+  map.getContainer().addEventListener('touchstart', function (evt) {
+    if (!canStartFillDrag()) return;
     if (!evt.touches || !evt.touches.length) return;
-    touchDragStarted = false;
-    var rect = mapContainer.getBoundingClientRect();
-    var touch = evt.touches[0];
-    var point = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
-    currentPointerDown = point;
-
+    var rect = map.getContainer().getBoundingClientRect();
+    var t = evt.touches[0];
+    var pt = L.point(t.clientX - rect.left, t.clientY - rect.top);
+    pointerStart = pt;
     clearTouchHoldTimer();
     touchHoldTimer = setTimeout(function () {
-      startFlagDrag(point);
+      startFillDrag(pt);
     }, 220);
   }, { passive: true });
 
-  mapContainer.addEventListener('touchmove', function (evt) {
+  map.getContainer().addEventListener('touchmove', function (evt) {
     if (!evt.touches || !evt.touches.length) return;
-    var rect = mapContainer.getBoundingClientRect();
-    var touch = evt.touches[0];
-    var point = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+    var rect = map.getContainer().getBoundingClientRect();
+    var t = evt.touches[0];
+    var pt = L.point(t.clientX - rect.left, t.clientY - rect.top);
 
     if (!isDraggingFill) {
-      if (currentPointerDown) {
-        var dx = point.x - currentPointerDown.x;
-        var dy = point.y - currentPointerDown.y;
+      if (pointerStart) {
+        var dx = pt.x - pointerStart.x;
+        var dy = pt.y - pointerStart.y;
         if (Math.sqrt(dx * dx + dy * dy) > 12) clearTouchHoldTimer();
       }
       return;
     }
 
     evt.preventDefault();
-    moveFlagDrag(point);
+    moveFillDrag(pt);
   }, { passive: false });
 
-  mapContainer.addEventListener('touchend', function () {
+  map.getContainer().addEventListener('touchend', function () {
     clearTouchHoldTimer();
-    endFlagDrag();
+    endFillDrag();
   }, { passive: true });
 
-  mapContainer.addEventListener('touchcancel', function () {
+  map.getContainer().addEventListener('touchcancel', function () {
     clearTouchHoldTimer();
-    endFlagDrag();
+    endFillDrag();
   }, { passive: true });
+
+  map.on('zoomend moveend', function () {
+    if (selectedLayer && selectedFeature && fillModeSelect.value !== 'solid') {
+      applyHighlight(selectedLayer, selectedFeature);
+    }
+  });
+
+  satelliteLayer.on('tileerror', function () {
+    if (basemapSelect.value === 'satellite') {
+      basemapSelect.value = 'dark';
+      useBasemap('dark');
+      setStatus('Satellite failed. Switched to dark fallback map');
+    }
+  });
 
   function loadCountryBoundaries() {
     var sources = [
@@ -1487,14 +1606,23 @@ html, body {
     ];
 
     function renderGeo(data) {
+      geoJsonData = data;
       if (geoLayer) map.removeLayer(geoLayer);
+
       geoLayer = L.geoJSON(data, {
         renderer: L.svg(),
-        style: { color: '#ffffff', weight: 0.7, fillOpacity: 0, fillColor: '#ffffff', opacity: 1 },
+        style: {
+          color: '#ffffff',
+          weight: 0.7,
+          fillOpacity: 0,
+          fillColor: '#ffffff',
+          opacity: 1
+        },
         onEachFeature: function (feature, layer) {
           layer.on('click', function () { selectCountry(feature, layer); });
         }
       }).addTo(map);
+
       setStatus('All countries loaded');
     }
 
