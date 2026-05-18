@@ -1,1653 +1,1365 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Geopolitics Explainer Map Tool</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<style>
-html, body {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #000;
-}
-#app {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-#map {
-  width: 100%;
-  height: 100%;
-  background:
-    radial-gradient(circle at 50% 45%, rgba(30,64,175,.35), transparent 30%),
-    linear-gradient(180deg, #020617 0%, #000 100%);
-}
-.leaflet-control-container { display: none; }
-.fab {
-  position: absolute;
-  top: max(14px, env(safe-area-inset-top));
-  right: max(14px, env(safe-area-inset-right));
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255,255,255,.14);
-  color: white;
-  font-size: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 9999;
-  box-shadow: 0 12px 30px rgba(0,0,0,.35);
-}
-.search-chip {
-  position: absolute;
-  top: max(14px, env(safe-area-inset-top));
-  left: 14px;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(320px, calc(100vw - 92px));
-  padding: 8px;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.84);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,.1);
-  box-shadow: 0 16px 40px rgba(0,0,0,.28);
-}
-.search-chip input {
-  flex: 1;
-  min-width: 0;
-  min-height: 38px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  box-sizing: border-box;
-  background: rgba(255,255,255,.06);
-  color: #fff;
-  outline: none;
-}
-.search-chip input::placeholder { color: rgba(255,255,255,.55); }
-.search-chip input:focus {
-  border-color: rgba(96,165,250,.8);
-  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
-}
-.search-chip button {
-  min-width: 42px;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  cursor: pointer;
-}
-.toolbar {
-  position: absolute;
-  top: calc(max(14px, env(safe-area-inset-top)) + 64px);
-  right: max(12px, env(safe-area-inset-right));
-  left: auto;
-  background: rgba(15, 23, 42, 0.84);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255,255,255,.1);
-  padding: 14px;
-  border-radius: 20px;
-  color: white;
-  font-size: 12px;
-  display: none;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 9999;
-  width: min(320px, calc(100vw - 24px));
-  box-shadow: 0 20px 50px rgba(0,0,0,.38);
-  max-height: calc(100vh - 92px);
-  overflow: auto;
-}
-.toolbar::-webkit-scrollbar { width: 8px; }
-.toolbar::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,.14);
-  border-radius: 999px;
-}
-.toolbar input,
-.toolbar select,
-.toolbar button {
-  width: 100%;
-  min-height: 42px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  box-sizing: border-box;
-  background: rgba(255,255,255,.06);
-  color: #fff;
-  outline: none;
-}
-.toolbar input::placeholder { color: rgba(255,255,255,.55); }
-.toolbar input:focus,
-.toolbar select:focus {
-  border-color: rgba(96,165,250,.8);
-  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
-}
-.toolbar button {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-  letter-spacing: .01em;
-}
-.toolbar button:hover { filter: brightness(1.05); }
-.toolbar .secondary {
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.08);
-}
-@media (max-width: 768px) {
-  .fab {
-    width: 50px;
-    height: 50px;
-    border-radius: 14px;
-    top: auto;
-    bottom: max(16px, env(safe-area-inset-bottom));
-    right: max(16px, env(safe-area-inset-right));
-  }
-  .search-chip {
-    top: max(12px, env(safe-area-inset-top));
-    left: 12px;
-    right: 74px;
-    width: auto;
-    border-radius: 16px;
-    padding: 7px;
-  }
-  .search-chip input {
-    min-height: 40px;
-    font-size: 14px;
-  }
-  .toolbar {
-    left: 12px;
-    right: 12px;
-    top: auto;
-    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 62px);
-    width: auto;
-    max-height: min(72vh, 680px);
-    border-radius: 22px;
-    padding: 14px;
-  }
-  .toolbar input,
-  .toolbar select,
-  .toolbar button {
-    min-height: 44px;
-    font-size: 14px;
-  }
-}
-.country-label {
-  color: white;
-  font-weight: 700;
-  font-size: 13px;
-  text-shadow: 0 2px 10px rgba(0,0,0,.85);
-  white-space: nowrap;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  background: rgba(15,23,42,.72);
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.1);
-}
-.status-pill {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  background: rgba(15,23,42,.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: white;
-  font-size: 12px;
-  padding: 10px 12px;
-  border-radius: 999px;
-  z-index: 9999;
-  border: 1px solid rgba(255,255,255,.1);
-  box-shadow: 0 10px 25px rgba(0,0,0,.22);
-  max-width: min(78vw, 420px);
-}
-.recording .fab,
-.recording .toolbar,
-.recording .status-pill,
-.recording .search-chip {
-  display: none !important;
-}
-.path-label {
-  color: #fff;
-  font-size: 11px;
-  font-weight: bold;
-  text-shadow: 0 0 6px rgba(0,0,0,0.9);
-  white-space: nowrap;
-}
-.arrow-handle,
-.missile-handle {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.35);
-}
-.arrow-handle { border: 2px solid #ef4444; }
-.missile-handle { border: 2px solid #f59e0b; }
-.preview-modal {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.78);
-  z-index: 10000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.preview-card {
-  width: min(92vw, 900px);
-  max-height: 90vh;
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0,0,0,.5);
-  display: flex;
-  flex-direction: column;
-}
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  color: #fff;
-  background: rgba(255,255,255,.04);
-}
-.preview-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.preview-actions button,
-.preview-actions a {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 10px;
-  text-decoration: none;
-  font-size: 12px;
-  cursor: pointer;
-}
-.preview-actions .secondary { background: #334155; }
-.preview-body {
-  background: transparent;
-  overflow: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  min-height: 320px;
-}
-.preview-body img,
-.preview-body iframe {
-  max-width: 100%;
-  max-height: 70vh;
-  background: transparent;
-}
-.preview-note {
-  color: #cbd5e1;
-  font-size: 12px;
-  padding: 0 14px 14px;
-}
-.hidden-export-stage {
-  position: fixed;
-  left: -20000px;
-  top: 0;
-  width: 1080px;
-  height: 1920px;
-  opacity: 1;
-  pointer-events: none;
-  overflow: hidden;
-  background: #000;
-}
-.hidden-export-map {
-  width: 1080px;
-  height: 1920px;
-}
-.range-value {
-  font-size: 11px;
-  color: rgba(255,255,255,.65);
-  margin-top: -4px;
-}
-</style>
-</head>
-<body>
-<div id="app">
-  <div class="search-chip" id="searchChip">
-    <input id="quickSearchInput" placeholder="Search country..." />
-    <button id="quickSearchBtn" type="button">⌕</button>
-  </div>
+import React, { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import { createClient } from "@supabase/supabase-js";
 
-  <div class="fab" id="fab">⚙</div>
+const supabaseUrl =
+  typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_URL
+    ? import.meta.env.VITE_SUPABASE_URL
+    : "https://qbrqgaepyempboinktkv.supabase.co";
 
-  <div class="toolbar" id="tools">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px;">
-      <div>
-        <div style="font-size:15px;font-weight:700;letter-spacing:.01em;">Map Controls</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">Mobile-friendly control panel</div>
-      </div>
-    </div>
+const supabaseKey =
+  typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_ANON_KEY
+    ? import.meta.env.VITE_SUPABASE_ANON_KEY
+    : "sb_publishable_BfpxEcLmLfANvo18STFz7A_Y2ctmO1i";
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Border Color</div>
-    <input type="color" id="borderColor" value="#ffd60a" />
+const supabase =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Border Size</div>
-    <input type="range" min="1" max="6" step="0.5" value="2" id="borderSize" />
+const menuData = [
+  {
+    id: 1,
+    name: "Margherita Pizza",
+    category: "Pizza",
+    price: 299,
+    image:
+      "https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=1200",
+  },
+  {
+    id: 2,
+    name: "Cheese Burger",
+    category: "Burgers",
+    price: 220,
+    image:
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200",
+  },
+  {
+    id: 3,
+    name: "Cold Coffee",
+    category: "Coffee",
+    price: 180,
+    image:
+      "https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=1200",
+  },
+];
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Opacity</div>
-    <input type="range" min="0" max="0.95" step="0.05" value="0.75" id="fadeSlider" />
+const tableData = Array.from({ length: 8 }, (_, i) => ({
+  id: i + 1,
+  status: i % 2 === 0 ? "Available" : "Occupied",
+}));
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Flag Marker Size</div>
-    <input type="range" min="20" max="120" step="2" value="34" id="flagSize" />
-    <div id="flagSizeValue" class="range-value">34px</div>
+export default function RestaurantPOSPreview() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [activePage, setActivePage] = useState("Menu");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [cart, setCart] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [tables, setTables] = useState(tableData);
+  const [menuItems, setMenuItems] = useState(menuData);
+  const [newTableCount, setNewTableCount] = useState("");
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [editingMode, setEditingMode] = useState(false);
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Fill Mode</div>
-    <select id="fillModeSelect">
-      <option value="solid">Solid Color</option>
-      <option value="flag">Flag Fill</option>
-      <option value="pulseFlag">Animated Flag Fill</option>
-    </select>
+  useEffect(() => {
+    if (supabase) {
+      fetchOrders();
 
-    <div style="font-size:11px;color:rgba(255,255,255,.62);font-weight:600;letter-spacing:.03em;text-transform:uppercase;">Basemap</div>
-    <select id="basemapSelect">
-      <option value="satellite" selected>Satellite</option>
-      <option value="dark">Dark Map Fallback</option>
-      <option value="indiaOutline">India Outline Map</option>
-    </select>
+      const channel = supabase
+        .channel("live-orders")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+          },
+          () => {
+            fetchOrders();
+          }
+        )
+        .subscribe();
 
-    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px;">
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
-        <input type="checkbox" id="labelToggle" checked style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
-        <span>Show Label</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
-        <input type="checkbox" id="flagToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
-        <span>Small Flag Marker</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);">
-        <input type="checkbox" id="dragFillToggle" style="width:16px;height:16px;min-height:auto;accent-color:#3b82f6;" />
-        <span>Drag Full Flag Fill</span>
-      </label>
-    </div>
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, []);
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button id="recordBtn">Record Mode</button>
-      <button class="secondary" id="showUiBtn">Show UI</button>
-      <button id="warArrowBtn">War Arrow</button>
-      <button id="missileBtn">Missile Path</button>
-      <button class="secondary" id="clearPathsBtn">Clear Paths</button>
-      <button class="secondary" id="clearSelectionBtn">Clear Map</button>
-      <button id="exportNoFlagBtn">PNG Solid</button>
-      <button id="exportWithFlagBtn">PNG Flag</button>
-      <button id="exportLandBtn">PNG Land</button>
-      <button id="exportPortrait4kBtn">9:16 4K Shot</button>
-      <button class="secondary" id="resetBtn" style="grid-column:1 / -1;">Full Reset</button>
-    </div>
-  </div>
+  const updateKitchenStatus = async (orderId:number, status:string) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status }
+          : order
+      )
+    );
 
-  <div id="map"></div>
-  <div class="status-pill" id="statusPill">Loading map...</div>
+    await supabase?.from("orders")
+      .update({ status })
+      .eq("id", orderId);
+  };
 
-  <div id="previewModal" class="preview-modal">
-    <div class="preview-card">
-      <div class="preview-header">
-        <strong id="previewTitle">Export Preview</strong>
-        <div class="preview-actions">
-          <button id="previewDownloadBtn" type="button">Download</button>
-          <a id="previewOpenLink" target="_blank" rel="noopener" class="secondary">Open</a>
-          <button id="previewCloseBtn" class="secondary" type="button">Close</button>
+  const fetchOrders = async () => {
+    if (!supabase) return;
+
+    const { data } = await supabase?.from("orders")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (data) {
+      const formatted = data.map((order:any) => ({
+        id: order.id,
+        table: order.table_no,
+        items: order.items,
+        total: order.total,
+        status: order.status,
+        time: new Date(order.created_at).toLocaleTimeString(),
+      }));
+
+      setOrders(formatted);
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      const categoryMatch =
+        selectedCategory === "All" ||
+        item.category === selectedCategory;
+
+      const searchMatch = item.name
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      return categoryMatch && searchMatch;
+    });
+  }, [search, selectedCategory, menuItems]);
+
+  const placeOrder = async () => {
+    if (editingMode && editingOrderId) {
+      setEditingMode(false);
+      setEditingOrderId(null);
+      setActivePage("Orders");
+      return;
+    }
+
+    if (cart.length === 0) return;
+
+    const availableTable = tables.find(
+      (table) => table.status === "Available"
+    );
+
+    const assignedTable = editingMode
+      ? selectedTable
+      : availableTable?.id;
+
+    if (!assignedTable) {
+      alert("No Tables Available");
+      return;
+    }
+
+    const newOrder = {
+      id: crypto.randomUUID(),
+      table: assignedTable,
+      items: cart,
+      total,
+      status: "Placed",
+      time: new Date().toLocaleTimeString(),
+    };
+
+    setOrders((prev) => [newOrder, ...prev]);
+
+    await supabase?.from("orders").insert([
+      {
+        table_no: assignedTable,
+        items: cart,
+        total,
+        status: "Placed",
+      },
+    ]);
+
+    setTables((prev) =>
+      prev.map((table) =>
+        table.id === assignedTable
+          ? { ...table, status: "Occupied" }
+          : table
+      )
+    );
+
+    setSelectedTable(null);
+    setCart([]);
+    setActivePage("Orders");
+  };
+
+  const generateBill = (orderId?: number, tableId?: number) => {
+    const pdf = new jsPDF();
+    const order = orders.find((o) => o.id === orderId);
+
+    pdf.setFontSize(22);
+    pdf.text("Restaurant Invoice", 20, 20);
+
+    pdf.setFontSize(14);
+    pdf.text(`Table: ${tableId}`, 20, 40);
+    pdf.text(`Order ID: ${orderId}`, 20, 50);
+    pdf.text(`Time: ${new Date().toLocaleString()}`, 20, 60);
+
+    let y = 80;
+
+    order?.items?.forEach((item:any) => {
+      pdf.text(
+        `${item.name} x ${item.qty}  -  ₹${item.qty * item.price}`,
+        20,
+        y
+      );
+
+      y += 10;
+    });
+
+    pdf.setFontSize(16);
+    pdf.text(`Total: ₹${order?.total || total}`, 20, y + 20);
+
+    pdf.save(`invoice-table-${tableId}.pdf`);
+
+    setTables((prev) =>
+      prev.map((table) =>
+        table.id === tableId
+          ? { ...table, status: "Available" }
+          : table
+      )
+    );
+
+    setOrders((prev) =>
+      prev.filter((o) => o.id !== orderId)
+    );
+
+    supabase
+      .from("orders")
+      .delete()
+      .eq("id", orderId);
+
+    setEditingMode(false);
+    setEditingOrderId(null);
+    setCart([]);
+  };
+
+  const addTable = () => {
+    if (!newTableCount) return;
+
+    const start = tables.length + 1;
+
+    const newTables = Array.from({ length: Number(newTableCount) }, (_, i) => ({
+      id: start + i,
+      status: "Available",
+    }));
+
+    setTables((prev) => [...prev, ...newTables]);
+    setNewTableCount("");
+  };
+
+  const editMenuPrice = (id: number, price: number) => {
+    setMenuItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, price }
+          : item
+      )
+    );
+  };
+
+  const editOrderQty = (
+    orderId: number,
+    itemId: number,
+    type: "increase" | "decrease"
+  ) => {
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId) return order;
+
+        const updatedItems = order.items
+          .map((item:any) => {
+            if (item.id !== itemId) return item;
+
+            return {
+              ...item,
+              qty:
+                type === "increase"
+                  ? item.qty + 1
+                  : item.qty - 1,
+            };
+          })
+          .filter((item:any) => item.qty > 0);
+
+        const subtotal = updatedItems.reduce(
+          (acc:number, item:any) =>
+            acc + item.price * item.qty,
+          0
+        );
+
+        return {
+          ...order,
+          items: updatedItems,
+          total: Math.round(subtotal * 1.18),
+        };
+      })
+    );
+  };
+
+  const addItemToExistingOrder = (
+    orderId: number,
+    menuItem: any
+  ) => {
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId) return order;
+
+        const existing = order.items.find(
+          (i:any) => i.id === menuItem.id
+        );
+
+        let updatedItems;
+
+        if (existing) {
+          updatedItems = order.items.map((i:any) =>
+            i.id === menuItem.id
+              ? { ...i, qty: i.qty + 1 }
+              : i
+          );
+        } else {
+          updatedItems = [
+            ...order.items,
+            { ...menuItem, qty: 1 },
+          ];
+        }
+
+        const subtotal = updatedItems.reduce(
+          (acc:number, item:any) =>
+            acc + item.price * item.qty,
+          0
+        );
+
+        return {
+          ...order,
+          items: updatedItems,
+          total: Math.round(subtotal * 1.18),
+        };
+      })
+    );
+  };
+
+  const downloadSalesReport = () => {
+    const report = orders
+      .map((order) => `Table ${order.table} | ₹${order.total} | ${order.time}`)
+      .join("\n");
+
+    const blob = new Blob([report], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sales-report.txt";
+    a.click();
+  };
+
+  const addToCart = (item: any) => {
+    if (editingMode && editingOrderId) {
+      addItemToExistingOrder(editingOrderId, item);
+      return;
+    }
+
+    const existing = cart.find((i) => i.id === item.id);
+
+    if (existing) {
+      setCart((prev) =>
+        prev.map((i) =>
+          i.id === item.id
+            ? { ...i, qty: i.qty + 1 }
+            : i
+        )
+      );
+    } else {
+      setCart((prev) => [...prev, { ...item, qty: 1 }]);
+    }
+  };
+
+  const increaseQty = (id: number) => {
+    setCart((prev) =>
+      prev.map((i) =>
+        i.id === id
+          ? { ...i, qty: i.qty + 1 }
+          : i
+      )
+    );
+  };
+
+  const decreaseQty = (id: number) => {
+    setCart((prev) =>
+      prev
+        .map((i) =>
+          i.id === id
+            ? { ...i, qty: i.qty - 1 }
+            : i
+        )
+        .filter((i) => i.qty > 0)
+    );
+  };
+
+  const editingOrder = orders.find(
+    (order) => order.id === editingOrderId
+  );
+
+  const liveItems = editingMode && editingOrder
+    ? editingOrder.items
+    : cart;
+
+  const subtotal = liveItems.reduce(
+    (acc, item) => acc + item.price * item.qty,
+    0
+  );
+
+  const gst = Math.round(subtotal * 0.18);
+  const total = subtotal + gst;
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+        <div className="bg-white w-full max-w-md rounded-[32px] p-10 shadow-2xl border border-slate-200">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-black text-blue-600">
+              Restaurant POS
+            </h1>
+            <p className="text-slate-400 mt-3">
+              Admin Login Panel
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <input
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              placeholder="Email"
+              className="w-full border border-slate-200 rounded-2xl px-5 py-4 outline-none"
+            />
+
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full border border-slate-200 rounded-2xl px-5 py-4 outline-none"
+            />
+
+            {loginError && (
+              <div className="bg-red-50 text-red-500 rounded-2xl p-4 text-sm font-semibold">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                if (
+                  loginEmail === "hello@elevareme.com" &&
+                  loginPassword === "Admin@123@"
+                ) {
+                  setIsLoggedIn(true);
+                  setLoginError("");
+                } else {
+                  setLoginError("Invalid Login Credentials");
+                }
+              }}
+              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg"
+            >
+              Login
+            </button>
+          </div>
         </div>
       </div>
-      <div id="previewBody" class="preview-body"></div>
-      <div id="previewNote" class="preview-note">If automatic download is blocked, use Download or Open.</div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+      <div className="bg-white w-full max-w-7xl rounded-[32px] shadow-2xl overflow-hidden border border-slate-200 flex min-h-[90vh]">
+        <aside className="w-28 bg-slate-50 border-r border-slate-200 p-4 flex flex-col gap-4 items-center">
+          <div className="text-3xl font-black text-blue-600 py-4">
+            POS
+          </div>
+
+          {[
+            "Menu",
+            "Orders",
+            "KOT",
+            "Tables",
+            "Manage",
+          ].map((item) => (
+            <button
+              key={item}
+              onClick={() => setActivePage(item)}
+              className={`w-full rounded-2xl py-4 text-sm font-semibold transition-all ${
+                activePage === item
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-slate-500 border border-slate-200"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </aside>
+
+        <main className="flex-1 flex overflow-hidden">
+          <div className="flex-1 p-8 overflow-y-auto">
+            {activePage === "Menu" && (
+              <>
+                <div className="flex items-center justify-between mb-8 gap-5">
+                  <div>
+                    {editingMode && editingOrderId && (
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-bold">
+                          Editing Existing Order
+                        </span>
+
+                        <button
+                          onClick={() => {
+                            setEditingMode(false);
+                            setEditingOrderId(null);
+                          }}
+                          className="bg-slate-200 px-4 py-2 rounded-xl font-bold"
+                        >
+                          Done Editing
+                        </button>
+                      </div>
+                    )}
+
+                    <h1 className="text-4xl font-black text-slate-800">
+                      Restaurant POS
+                    </h1>
+
+                    <p className="text-slate-400 mt-2">
+                      Smart restaurant billing & table management
+                    </p>
+                  </div>
+
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search food..."
+                    className="bg-white border border-slate-200 rounded-2xl px-5 py-3 w-72 outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-5 gap-4 mb-8">
+                  {[
+                    "All",
+                    "Pizza",
+                    "Burgers",
+                    "Main Course",
+                    "Coffee",
+                  ].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`rounded-3xl p-5 text-center border transition-all ${
+                        selectedCategory === cat
+                          ? "border-blue-500 shadow-lg bg-white"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <div className="font-bold">{cat}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {filteredItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-[28px] overflow-hidden border border-slate-200 shadow-sm"
+                    >
+                      <img
+                        src={item.image}
+                        className="h-56 w-full object-cover"
+                      />
+
+                      <div className="p-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h2 className="font-black text-xl text-slate-800">
+                              {item.name}
+                            </h2>
+
+                            <p className="text-slate-400 mt-1">
+                              {item.category}
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => addToCart(item)}
+                            className="w-12 h-12 rounded-2xl bg-blue-600 text-white text-2xl"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="mt-5 text-2xl font-black text-blue-600">
+                          ₹{item.price}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activePage === "Orders" && (
+              <>
+                <h1 className="text-4xl font-black text-slate-800 mb-8">
+                  Placed Orders
+                </h1>
+
+                <div className="space-y-5 mb-10">
+                  {orders.length === 0 && (
+                    <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center text-slate-400">
+                      No Orders Yet
+                    </div>
+                  )}
+
+                  {orders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="bg-white rounded-3xl border border-slate-200 p-6"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h2 className="text-2xl font-black">
+                            Table {order.table}
+                          </h2>
+
+                          <p className="text-slate-400 mt-1">
+                            {order.time}
+                          </p>
+                        </div>
+
+                        <span className={`px-4 py-2 rounded-xl font-bold ${
+                          order.status === "Placed"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : order.status === "Accepted"
+                            ? "bg-blue-100 text-blue-700"
+                            : order.status === "Preparing"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+
+                      {order.items.map((item:any) => (
+                        <div key={item.id} className="flex justify-between py-1">
+                          <span>{item.name} x {item.qty}</span>
+                          <span>₹{item.qty * item.price}</span>
+                        </div>
+                      ))}
+
+                      <div className="flex gap-3 mt-5 flex-wrap">
+                        <button
+                          onClick={() =>
+                            generateBill(order.id, order.table)
+                          }
+                          className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold"
+                        >
+                          Generate Bill
+                        </button>
+                        <button
+                          onClick={() =>
+                            setEditingOrderId(
+                              editingOrderId === order.id
+                                ? null
+                                : order.id
+                            )
+                          }
+                          className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold"
+                        >
+                          Edit Order
+                        </button>
+                      </div>
+
+                      {editingOrderId === order.id && (
+                        <div className="mt-5 border-t pt-5">
+                          <h3 className="font-black text-lg mb-4">
+                            Edit Table {order.table} Order
+                          </h3>
+
+                          <div className="space-y-3 mb-5">
+                            {order.items.map((item:any) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between bg-slate-50 rounded-2xl p-3"
+                              >
+                                <div>
+                                  <h4 className="font-bold">
+                                    {item.name}
+                                  </h4>
+
+                                  <p className="text-slate-400 text-sm">
+                                    ₹{item.price}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() =>
+                                      editOrderQty(
+                                        order.id,
+                                        item.id,
+                                        "decrease"
+                                      )
+                                    }
+                                    className="w-8 h-8 rounded-lg border bg-white"
+                                  >
+                                    -
+                                  </button>
+
+                                  <span className="font-bold">
+                                    {item.qty}
+                                  </span>
+
+                                  <button
+                                    onClick={() =>
+                                      editOrderQty(
+                                        order.id,
+                                        item.id,
+                                        "increase"
+                                      )
+                                    }
+                                    className="w-8 h-8 rounded-lg bg-blue-600 text-white"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setEditingOrderId(order.id);
+                              setEditingMode(true);
+                              setSelectedTable(order.table);
+                              setActivePage("Menu");
+                            }}
+                            className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold mt-5"
+                          >
+                            Add More Items From Menu
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="mt-4 text-right text-2xl font-black text-blue-600">
+                        ₹{order.total}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activePage === "KOT" && (
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h1 className="text-4xl font-black text-slate-800">
+                      Kitchen Orders
+                    </h1>
+
+                    <p className="text-slate-400 mt-2">
+                      Live kitchen preparation tracking
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  {orders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="bg-white rounded-3xl border border-slate-200 p-6"
+                    >
+                      <div className="flex items-center justify-between mb-5">
+                        <div>
+                          <h2 className="text-2xl font-black">
+                            Table {order.table}
+                          </h2>
+
+                          <p className="text-slate-400 mt-1">
+                            {order.time}
+                          </p>
+                        </div>
+
+                        <span className={`px-4 py-2 rounded-xl font-bold ${
+                          order.status === "Placed"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : order.status === "Accepted"
+                            ? "bg-blue-100 text-blue-700"
+                            : order.status === "Preparing"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 mb-6">
+                        {order.items.map((item:any) => (
+                          <div
+                            key={item.id}
+                            className="flex justify-between bg-slate-50 rounded-xl p-3"
+                          >
+                            <span className="font-semibold">
+                              {item.name} x {item.qty}
+                            </span>
+
+                            <span>
+                              ₹{item.qty * item.price}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-3 flex-wrap">
+                        <button
+                          onClick={() =>
+                            updateKitchenStatus(order.id, "Accepted")
+                          }
+                          className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold"
+                        >
+                          Accept
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateKitchenStatus(order.id, "Preparing")
+                          }
+                          className="bg-orange-500 text-white px-4 py-2 rounded-xl font-bold"
+                        >
+                          Preparing
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateKitchenStatus(order.id, "Ready")
+                          }
+                          className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold"
+                        >
+                          Ready
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activePage === "Tables" && (
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h1 className="text-4xl font-black text-slate-800">
+                      Tables Management
+                    </h1>
+
+                    <p className="text-slate-400 mt-2">
+                      Manage live restaurant seating & availability
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <input
+                      value={newTableCount}
+                      onChange={(e) =>
+                        setNewTableCount(e.target.value)
+                      }
+                      type="number"
+                      placeholder="Add Tables"
+                      className="w-36 border border-slate-200 rounded-2xl px-4 py-3"
+                    />
+
+                    <button
+                      onClick={addTable}
+                      className="bg-green-600 text-white px-5 py-3 rounded-2xl font-bold"
+                    >
+                      Add Tables
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {tables.map((table) => (
+                    <div
+                      key={table.id}
+                      className={`rounded-3xl p-6 border shadow-sm ${
+                        table.status === "Available"
+                          ? "bg-green-50 border-green-200"
+                          : table.status === "Reserved"
+                          ? "bg-yellow-50 border-yellow-200"
+                          : "bg-red-50 border-red-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-5">
+                        <div>
+                          <h2 className="text-2xl font-black text-slate-800">
+                            Table {table.id}
+                          </h2>
+
+                          <p className="mt-2 font-semibold text-slate-500">
+                            {table.status}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() =>
+                            setTables((prev) =>
+                              prev.filter((t) => t.id !== table.id)
+                            )
+                          }
+                          className="bg-red-500 text-white px-3 py-2 rounded-xl text-sm font-bold"
+                        >
+                          Delete
+                        </button>
+                      </div>
+
+                      <select
+                        value={table.status}
+                        onChange={(e) =>
+                          setTables((prev) =>
+                            prev.map((t) =>
+                              t.id === table.id
+                                ? {
+                                    ...t,
+                                    status: e.target.value,
+                                  }
+                                : t
+                            )
+                          )
+                        }
+                        className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white font-semibold"
+                      >
+                        <option>Available</option>
+                        <option>Occupied</option>
+                        <option>Reserved</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activePage === "Manage" && (
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h1 className="text-4xl font-black text-slate-800">
+                      Restaurant Management
+                    </h1>
+
+                    <p className="text-slate-400 mt-2">
+                      Control menu, tables, pricing & analytics
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={downloadSalesReport}
+                    className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg"
+                  >
+                    Download Sales Report
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                    <p className="text-slate-400 font-semibold">
+                      Total Revenue
+                    </p>
+
+                    <h2 className="text-4xl font-black mt-3 text-green-600">
+                      ₹{orders.reduce((acc, order) => acc + order.total, 0)}
+                    </h2>
+                  </div>
+
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                    <p className="text-slate-400 font-semibold">
+                      Active Orders
+                    </p>
+
+                    <h2 className="text-4xl font-black mt-3 text-orange-500">
+                      {orders.length}
+                    </h2>
+                  </div>
+
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                    <p className="text-slate-400 font-semibold">
+                      Available Tables
+                    </p>
+
+                    <h2 className="text-4xl font-black mt-3 text-blue-600">
+                      {
+                        tables.filter(
+                          (table) => table.status === "Available"
+                        ).length
+                      }
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-8">
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-black">
+                        Menu Management
+                      </h2>
+
+                      <button
+                        onClick={() => {
+                          const newItem = {
+                            id: Date.now(),
+                            name: "New Dish",
+                            category: "Main Course",
+                            price: 250,
+                            image:
+                              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200",
+                          };
+
+                          setMenuItems((prev) => [
+                            ...prev,
+                            newItem,
+                          ]);
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold"
+                      >
+                        Add Item
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2">
+                      {menuItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-slate-50 rounded-3xl p-4 border border-slate-200"
+                        >
+                          <div className="flex gap-4">
+                            <img
+                              src={item.image}
+                              className="w-24 h-24 rounded-2xl object-cover"
+                            />
+
+                            <div className="flex-1">
+                              <input
+                                value={item.name}
+                                onChange={(e) =>
+                                  setMenuItems((prev) =>
+                                    prev.map((i) =>
+                                      i.id === item.id
+                                        ? {
+                                            ...i,
+                                            name: e.target.value,
+                                          }
+                                        : i
+                                    )
+                                  )
+                                }
+                                className="w-full bg-white border rounded-xl px-3 py-2 font-bold"
+                              />
+
+                              <div className="grid grid-cols-2 gap-3 mt-3">
+                                <input
+                                  value={item.category}
+                                  onChange={(e) =>
+                                    setMenuItems((prev) =>
+                                      prev.map((i) =>
+                                        i.id === item.id
+                                          ? {
+                                              ...i,
+                                              category: e.target.value,
+                                            }
+                                          : i
+                                      )
+                                    )
+                                  }
+                                  className="bg-white border rounded-xl px-3 py-2"
+                                />
+
+                                <input
+                                  type="number"
+                                  value={item.price}
+                                  onChange={(e) =>
+                                    editMenuPrice(
+                                      item.id,
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  className="bg-white border rounded-xl px-3 py-2"
+                                />
+                              </div>
+
+                              <div className="flex justify-end mt-4">
+                                <button
+                                  onClick={() =>
+                                    setMenuItems((prev) =>
+                                      prev.filter(
+                                        (i) => i.id !== item.id
+                                      )
+                                    )
+                                  }
+                                  className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-8 hidden">
+                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-black">
+                          Table Management
+                        </h2>
+
+                        <div className="flex gap-3">
+                          <input
+                            value={newTableCount}
+                            onChange={(e) =>
+                              setNewTableCount(e.target.value)
+                            }
+                            type="number"
+                            placeholder="Tables"
+                            className="w-24 border border-slate-200 rounded-2xl px-3 py-2"
+                          />
+
+                          <button
+                            onClick={addTable}
+                            className="bg-green-600 text-white px-4 rounded-2xl font-bold"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 max-h-[320px] overflow-y-auto pr-2">
+                        {tables.map((table) => (
+                          <div
+                            key={table.id}
+                            className="rounded-2xl border border-slate-200 p-4 bg-slate-50"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="font-black text-lg">
+                                Table {table.id}
+                              </h3>
+
+                              <button
+                                onClick={() =>
+                                  setTables((prev) =>
+                                    prev.filter(
+                                      (t) => t.id !== table.id
+                                    )
+                                  )
+                                }
+                                className="text-red-500 font-bold"
+                              >
+                                Delete
+                              </button>
+                            </div>
+
+                            <select
+                              value={table.status}
+                              onChange={(e) =>
+                                setTables((prev) =>
+                                  prev.map((t) =>
+                                    t.id === table.id
+                                      ? {
+                                          ...t,
+                                          status: e.target.value,
+                                        }
+                                      : t
+                                  )
+                                )
+                              }
+                              className="w-full border rounded-xl px-3 py-2"
+                            >
+                              <option>Available</option>
+                              <option>Occupied</option>
+                              <option>Reserved</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                      <h2 className="text-2xl font-black mb-6">
+                        Restaurant Insights
+                      </h2>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4">
+                          <span className="font-semibold text-slate-500">
+                            Total Menu Items
+                          </span>
+
+                          <span className="text-xl font-black">
+                            {menuItems.length}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4">
+                          <span className="font-semibold text-slate-500">
+                            Occupied Tables
+                          </span>
+
+                          <span className="text-xl font-black text-red-500">
+                            {
+                              tables.filter(
+                                (table) =>
+                                  table.status === "Occupied"
+                              ).length
+                            }
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4">
+                          <span className="font-semibold text-slate-500">
+                            Avg Order Value
+                          </span>
+
+                          <span className="text-xl font-black text-green-600">
+                            ₹{
+                              orders.length > 0
+                                ? Math.round(
+                                    orders.reduce(
+                                      (acc, order) =>
+                                        acc + order.total,
+                                      0
+                                    ) / orders.length
+                                  )
+                                : 0
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="w-[380px] bg-white border-l border-slate-200 p-6 overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-slate-800">
+                {editingMode ? "Editing Order" : "Your Order"}
+              </h2>
+
+              <span className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl font-bold">
+                Table {selectedTable || "Auto"}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {liveItems.length === 0 && (
+                <div className="bg-slate-50 rounded-2xl p-6 text-center text-slate-400">
+                  No items added
+                </div>
+              )}
+
+              {liveItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-slate-50 rounded-2xl p-4 border border-slate-100"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-slate-800">
+                        {item.name}
+                      </h3>
+
+                      <p className="text-slate-400 mt-1">
+                        ₹{item.price}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() =>
+                          editingMode && editingOrderId
+                            ? editOrderQty(
+                                editingOrderId,
+                                item.id,
+                                "decrease"
+                              )
+                            : decreaseQty(item.id)
+                        }
+                        className="w-8 h-8 rounded-lg bg-white border"
+                      >
+                        -
+                      </button>
+
+                      <span className="font-bold">
+                        {item.qty}
+                      </span>
+
+                      <button
+                        onClick={() =>
+                          editingMode && editingOrderId
+                            ? editOrderQty(
+                                editingOrderId,
+                                item.id,
+                                "increase"
+                              )
+                            : increaseQty(item.id)
+                        }
+                        className="w-8 h-8 rounded-lg bg-blue-600 text-white"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-200 space-y-3">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>₹{subtotal}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>GST</span>
+                <span>₹{gst}</span>
+              </div>
+
+              <div className="flex justify-between text-xl font-black">
+                <span>Total</span>
+                <span>₹{total}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={placeOrder}
+              className="w-full mt-8 bg-orange-500 text-white py-4 rounded-2xl font-bold text-lg"
+            >
+              {editingMode ? "Update Order" : "Place Order"}
+            </button>
+
+            
+          </div>
+        </main>
+      </div>
     </div>
-  </div>
-</div>
-
-<script>
-(function () {
-  var app = document.getElementById('app');
-  var statusPill = document.getElementById('statusPill');
-  var fab = document.getElementById('fab');
-  var tools = document.getElementById('tools');
-  var quickSearchInput = document.getElementById('quickSearchInput');
-  var quickSearchBtn = document.getElementById('quickSearchBtn');
-  var borderColorInput = document.getElementById('borderColor');
-  var borderSizeInput = document.getElementById('borderSize');
-  var fadeSliderInput = document.getElementById('fadeSlider');
-  var flagSizeInput = document.getElementById('flagSize');
-  var flagSizeValue = document.getElementById('flagSizeValue');
-  var fillModeSelect = document.getElementById('fillModeSelect');
-  var basemapSelect = document.getElementById('basemapSelect');
-  var labelToggle = document.getElementById('labelToggle');
-  var flagToggle = document.getElementById('flagToggle');
-  var dragFillToggle = document.getElementById('dragFillToggle');
-  var recordBtn = document.getElementById('recordBtn');
-  var showUiBtn = document.getElementById('showUiBtn');
-  var warArrowBtn = document.getElementById('warArrowBtn');
-  var missileBtn = document.getElementById('missileBtn');
-  var clearPathsBtn = document.getElementById('clearPathsBtn');
-  var exportNoFlagBtn = document.getElementById('exportNoFlagBtn');
-  var exportWithFlagBtn = document.getElementById('exportWithFlagBtn');
-  var exportLandBtn = document.getElementById('exportLandBtn');
-  var exportPortrait4kBtn = document.getElementById('exportPortrait4kBtn');
-  var clearSelectionBtn = document.getElementById('clearSelectionBtn');
-  var resetBtn = document.getElementById('resetBtn');
-  var previewModal = document.getElementById('previewModal');
-  var previewTitle = document.getElementById('previewTitle');
-  var previewBody = document.getElementById('previewBody');
-  var previewDownloadBtn = document.getElementById('previewDownloadBtn');
-  var previewOpenLink = document.getElementById('previewOpenLink');
-  var previewCloseBtn = document.getElementById('previewCloseBtn');
-
-  var map = L.map('map', {
-    zoomControl: false,
-    attributionControl: false,
-    preferCanvas: false,
-    renderer: L.svg()
-  }).setView([20, 0], 3);
-
-  var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19,
-    crossOrigin: true
-  });
-
-  var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd',
-    maxZoom: 19,
-    crossOrigin: true
-  });
-
-  var activeBaseLayer = null;
-  var geoLayer = null;
-  var geoJsonData = null;
-  var selectedLayer = null;
-  var selectedFeature = null;
-  var indiaSchoolOutlineLayer = null;
-  var labelMarker = null;
-  var flagMarker = null;
-  var indiaClaimOverlay = null;
-  var animationFrame = null;
-  var pathLayers = [];
-  var pathHandles = [];
-  var pathLabels = [];
-  var currentPreviewUrl = '';
-  var currentPreviewFilename = '';
-  var flagFillOffsets = {};
-  var isDraggingFill = false;
-  var pointerStart = null;
-  var touchHoldTimer = null;
-
-  function setStatus(message) {
-    statusPill.textContent = message;
-  }
-
-  function updateFlagSizeLabel() {
-    flagSizeValue.textContent = flagSizeInput.value + 'px';
-  }
-
-  function getFeatureName(feature) {
-    if (!feature || !feature.properties) return 'Unknown';
-    return feature.properties.ADMIN || feature.properties.NAME || feature.properties.name || 'Unknown';
-  }
-
-  function getIso2(feature) {
-    if (!feature || !feature.properties) return null;
-    var props = feature.properties;
-    var directCandidates = [props.ISO_A2, props.iso_a2, props.ISO2, props.iso2, props['ISO3166-1-Alpha-2'], props.iso3166_1_alpha_2];
-    for (var i = 0; i < directCandidates.length; i += 1) {
-      var raw = directCandidates[i];
-      if (!raw || raw === '-99') continue;
-      var normalized = String(raw).trim().toLowerCase();
-      if (/^[a-z]{2}$/.test(normalized)) return normalized;
-    }
-    var a3 = String(props.ISO_A3 || props.iso_a3 || props.ADM0_A3 || props.adm0_a3 || '').trim().toUpperCase();
-    var a3ToA2 = {
-      IND: 'in', USA: 'us', CHN: 'cn', RUS: 'ru', FRA: 'fr', DEU: 'de', ITA: 'it', GBR: 'gb', BRA: 'br', JPN: 'jp', PAK: 'pk',
-      BGD: 'bd', TUR: 'tr', UKR: 'ua', ARG: 'ar', IDN: 'id', NLD: 'nl', POL: 'pl', IRL: 'ie', FIN: 'fi', ESP: 'es', PRT: 'pt',
-      BEL: 'be', CHE: 'ch', AUT: 'at', SWE: 'se', NOR: 'no', DNK: 'dk', GRC: 'gr', ISR: 'il', SAU: 'sa', ARE: 'ae', IRN: 'ir',
-      IRQ: 'iq', AFG: 'af', KOR: 'kr', PRK: 'kp', AUS: 'au', NZL: 'nz', CAN: 'ca', MEX: 'mx', ZAF: 'za', EGY: 'eg', ETH: 'et',
-      NGA: 'ng', KEN: 'ke', VNM: 'vn', THA: 'th', MMR: 'mm', LKA: 'lk', NPL: 'np', BTN: 'bt', MAR: 'ma', DZA: 'dz'
-    };
-    return a3ToA2[a3] || null;
-  }
-
-  function getFlagPngUrl(feature) {
-    var iso2 = getIso2(feature);
-    return iso2 ? ('https://flagcdn.com/w640/' + iso2 + '.png') : null;
-  }
-
-  function getFlagSvgUrl(feature) {
-    var iso2 = getIso2(feature);
-    return iso2 ? ('https://flagcdn.com/' + iso2 + '.svg') : null;
-  }
-
-  function getFeatureKey(feature) {
-    return (getIso2(feature) || getFeatureName(feature) || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  }
-
-  function getFillOffset(feature) {
-    var key = getFeatureKey(feature);
-    if (!flagFillOffsets[key]) flagFillOffsets[key] = { x: 0, y: 0 };
-    return flagFillOffsets[key];
-  }
-
-  function stopAnimation() {
-    if (animationFrame) {
-      cancelAnimationFrame(animationFrame);
-      animationFrame = null;
-    }
-  }
-
-  function hideIndiaSchoolOutline() {
-    if (indiaSchoolOutlineLayer && map.hasLayer(indiaSchoolOutlineLayer)) {
-      map.removeLayer(indiaSchoolOutlineLayer);
-    }
-  }
-
-  function showIndiaSchoolOutline() {
-    if (!indiaSchoolOutlineLayer) {
-      indiaSchoolOutlineLayer = L.imageOverlay('india-political-map.png', L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]), {
-        opacity: 1,
-        interactive: false,
-        crossOrigin: 'anonymous'
-      });
-    }
-    indiaSchoolOutlineLayer.addTo(map);
-  }
-
-  function useBasemap(type) {
-    hideIndiaSchoolOutline();
-    if (activeBaseLayer) {
-      map.removeLayer(activeBaseLayer);
-      activeBaseLayer = null;
-    }
-
-    if (type === 'indiaOutline') {
-      map.getContainer().style.background = '#000';
-      map.setView([22.8, 81.2], 4.6, { animate: false });
-      showIndiaSchoolOutline();
-      setStatus('India outline mode');
-      return;
-    }
-
-    map.getContainer().style.background = '';
-    activeBaseLayer = type === 'dark' ? darkLayer : satelliteLayer;
-    activeBaseLayer.addTo(map);
-    setStatus(type === 'dark' ? 'Dark fallback map loaded' : 'Satellite map loaded');
-  }
-
-  function toggleTools() {
-    tools.style.display = tools.style.display === 'flex' ? 'none' : 'flex';
-  }
-
-  function showUI() {
-    app.classList.remove('recording');
-  }
-
-  function ensureMainSvgDefs() {
-    var svg = map.getPanes().overlayPane.querySelector('svg');
-    if (!svg) return null;
-    var defs = svg.querySelector('defs');
-    if (!defs) {
-      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      svg.insertBefore(defs, svg.firstChild);
-    }
-    return defs;
-  }
-
-  function clearLayerFlagFill(layer) {
-    if (!layer) return;
-    if (layer._flagImageEl && layer._flagImageEl.parentNode) layer._flagImageEl.parentNode.removeChild(layer._flagImageEl);
-    if (layer._flagClipEl && layer._flagClipEl.parentNode) layer._flagClipEl.parentNode.removeChild(layer._flagClipEl);
-    layer._flagImageEl = null;
-    layer._flagClipEl = null;
-    if (layer._path) {
-      layer._path.style.fill = 'transparent';
-      layer._path.removeAttribute('fill');
-      layer._path.style.fillOpacity = '0';
-    }
-  }
-
-  function clearAllFlagFills() {
-    if (!geoLayer) return;
-    geoLayer.eachLayer(function (layer) {
-      clearLayerFlagFill(layer);
-    });
-    if (indiaClaimOverlay) clearLayerFlagFill(indiaClaimOverlay);
-  }
-
-  function createFlagClipFill(layer, feature) {
-    if (!layer || !layer._path) return false;
-    var flagUrl = getFlagSvgUrl(feature);
-    if (!flagUrl) return false;
-
-    var defs = ensureMainSvgDefs();
-    if (!defs) return false;
-
-    clearLayerFlagFill(layer);
-
-    var bbox = layer._path.getBBox();
-    if (!bbox || !bbox.width || !bbox.height) return false;
-
-    var key = getFeatureKey(feature);
-    var offset = getFillOffset(feature);
-    var clipId = 'clip-' + key + '-' + Date.now();
-
-    var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-    clipPath.setAttribute('id', clipId);
-
-    var pathClone = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    pathClone.setAttribute('d', layer._path.getAttribute('d'));
-    clipPath.appendChild(pathClone);
-    defs.appendChild(clipPath);
-
-    var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
-    img.setAttribute('href', flagUrl);
-    img.setAttribute('x', String(bbox.x + offset.x));
-    img.setAttribute('y', String(bbox.y + offset.y));
-    img.setAttribute('width', String(bbox.width));
-    img.setAttribute('height', String(bbox.height));
-    img.setAttribute('preserveAspectRatio', 'none');
-    img.setAttribute('clip-path', 'url(#' + clipId + ')');
-    img.setAttribute('opacity', String(Number(fadeSliderInput.value)));
-    img.style.pointerEvents = 'none';
-
-    layer._path.parentNode.insertBefore(img, layer._path);
-    layer._path.style.fill = 'transparent';
-    layer._path.style.fillOpacity = '0';
-    layer._flagImageEl = img;
-    layer._flagClipEl = clipPath;
-    return true;
-  }
-
-  function clearMarkers() {
-    if (labelMarker) { map.removeLayer(labelMarker); labelMarker = null; }
-    if (flagMarker) { map.removeLayer(flagMarker); flagMarker = null; }
-    if (indiaClaimOverlay) { clearLayerFlagFill(indiaClaimOverlay); map.removeLayer(indiaClaimOverlay); indiaClaimOverlay = null; }
-  }
-
-  function addFlag(feature, layer) {
-    if (!flagToggle.checked) return;
-    var flagUrl = getFlagPngUrl(feature);
-    if (!flagUrl) return;
-    var center = layer.getBounds().getCenter();
-    var flagSize = Number(flagSizeInput.value);
-    flagMarker = L.marker([center.lat + 2, center.lng], {
-      icon: L.divIcon({
-        className: '',
-        html:
-          '<div style="background:rgba(0,0,0,.7);border-radius:6px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.35);">' +
-          '<img src="' + flagUrl + '" alt="flag" crossorigin="anonymous" style="width:' + flagSize + 'px;height:auto;border-radius:4px;display:block;">' +
-          '</div>'
-      })
-    }).addTo(map);
-  }
-
-  function addLabel(feature, layer) {
-    if (labelToggle.checked) {
-      var center = layer.getBounds().getCenter();
-      labelMarker = L.marker(L.latLng(center.lat - 4, center.lng), {
-        interactive: false,
-        icon: L.divIcon({ className: 'country-label', html: getFeatureName(feature), iconSize: [0, 0], iconAnchor: [0, 0] })
-      }).addTo(map);
-    }
-    addFlag(feature, layer);
-  }
-
-  function applyIndiaClaimOverlay(feature, fillMode, color, size, opacity) {
-    if (!feature || getIso2(feature) !== 'in') return;
-
-    var aksaiChinCoords = [
-      [35.65, 78.05],
-      [35.95, 79.10],
-      [35.70, 80.65],
-      [35.20, 81.65],
-      [34.75, 80.95],
-      [34.55, 79.85],
-      [34.70, 78.65],
-      [35.05, 78.00]
-    ];
-
-    indiaClaimOverlay = L.polygon(aksaiChinCoords, {
-      color: color,
-      weight: size,
-      fillColor: color,
-      fillOpacity: opacity,
-      interactive: false,
-      smoothFactor: 0
-    }).addTo(map);
-
-    if (fillMode !== 'solid') {
-      setTimeout(function () {
-        createFlagClipFill(indiaClaimOverlay, feature);
-      }, 0);
-    }
-  }
-
-  function animateSelectedLayer() {
-    stopAnimation();
-    if (!selectedLayer) return;
-    var start = null;
-    function tick(ts) {
-      if (!start) start = ts;
-      if (!selectedLayer) return;
-      var progress = (ts - start) / 1000;
-      var wave = 0.45 + ((Math.sin(progress * 4) + 1) / 2) * 0.35;
-      if (selectedLayer._flagImageEl) selectedLayer._flagImageEl.setAttribute('opacity', String(wave));
-      if (indiaClaimOverlay && indiaClaimOverlay._flagImageEl) indiaClaimOverlay._flagImageEl.setAttribute('opacity', String(wave));
-      animationFrame = requestAnimationFrame(tick);
-    }
-    animationFrame = requestAnimationFrame(tick);
-  }
-
-  function resetLayerStyles() {
-    stopAnimation();
-    clearAllFlagFills();
-    if (!geoLayer) return;
-    geoLayer.eachLayer(function (layer) {
-      layer.setStyle({
-        color: '#ffffff',
-        weight: 0.7,
-        fillOpacity: 0,
-        fillColor: '#ffffff',
-        opacity: 1
-      });
-      if (layer._path) {
-        layer._path.style.filter = 'none';
-      }
-    });
-  }
-
-  function applyHighlight(layer, feature) {
-    if (!geoLayer || !layer || !feature) return;
-
-    var color = borderColorInput.value;
-    var size = Number(borderSizeInput.value);
-    var opacity = Number(fadeSliderInput.value);
-    var fillMode = fillModeSelect.value;
-
-    resetLayerStyles();
-    clearMarkers();
-
-    layer.setStyle({
-      color: color,
-      weight: size,
-      fillColor: color,
-      fillOpacity: fillMode === 'solid' ? opacity : 0,
-      opacity: 1
-    });
-
-    addLabel(feature, layer);
-
-    if (fillMode !== 'solid') {
-      setTimeout(function () {
-        var ok = createFlagClipFill(layer, feature);
-        if (!ok) {
-          layer.setStyle({ fillColor: color, fillOpacity: opacity });
-        }
-        applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-        if (fillMode === 'pulseFlag') animateSelectedLayer();
-      }, 0);
-    } else {
-      applyIndiaClaimOverlay(feature, fillMode, color, size, opacity);
-    }
-
-    setStatus(getFeatureName(feature) + ' selected');
-  }
-
-  function selectCountry(feature, layer) {
-    if (!feature || !layer) return;
-    selectedLayer = layer;
-    selectedFeature = feature;
-    getFillOffset(feature);
-
-    var bounds = layer.getBounds();
-    if (bounds && bounds.isValid && bounds.isValid()) {
-      map.flyToBounds(bounds, { duration: 1.3, padding: [60, 60] });
-    }
-
-    setTimeout(function () {
-      applyHighlight(layer, feature);
-    }, 220);
-  }
-
-  function clearSelection() {
-    resetLayerStyles();
-    clearMarkers();
-    selectedLayer = null;
-    selectedFeature = null;
-    setStatus('Selection cleared');
-  }
-
-  function clearPaths() {
-    pathLayers.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathHandles.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathLabels.forEach(function (layer) { if (map.hasLayer(layer)) map.removeLayer(layer); });
-    pathLayers = [];
-    pathHandles = [];
-    pathLabels = [];
-    setStatus('All arrows and missile paths cleared');
-  }
-
-  function resetMap() {
-    resetLayerStyles();
-    clearMarkers();
-    clearPaths();
-    selectedLayer = null;
-    selectedFeature = null;
-    map.flyTo([20, 0], 3);
-    setStatus('Map reset');
-  }
-
-  function closePreviewModal() {
-    previewModal.style.display = 'none';
-    previewBody.innerHTML = '';
-    currentPreviewUrl = '';
-    currentPreviewFilename = '';
-    previewOpenLink.removeAttribute('href');
-  }
-
-  function openPreview(url, filename, kind) {
-    previewTitle.textContent = filename;
-    previewBody.innerHTML = '';
-    currentPreviewUrl = url;
-    currentPreviewFilename = filename;
-
-    if (kind === 'png') {
-      var img = document.createElement('img');
-      img.src = url;
-      previewBody.appendChild(img);
-    } else {
-      var iframe = document.createElement('iframe');
-      iframe.src = url;
-      iframe.style.width = '100%';
-      iframe.style.height = '70vh';
-      previewBody.appendChild(iframe);
-    }
-
-    previewOpenLink.href = url;
-    previewModal.style.display = 'flex';
-  }
-
-  function triggerDownload(url, filename) {
-    var link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  function triggerBlobDownloadFromUrl(url, filename) {
-    fetch(url)
-      .then(function (response) { return response.blob(); })
-      .then(function (blob) {
-        var blobUrl = URL.createObjectURL(blob);
-        triggerDownload(blobUrl, filename);
-        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 1000);
-        setStatus('Download started');
-      })
-      .catch(function () {
-        setStatus('Download failed. Use Open and save manually.');
-      });
-  }
-
-  function loadImage(url) {
-    return new Promise(function (resolve, reject) {
-      var img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = function () { resolve(img); };
-      img.onerror = reject;
-      img.src = url;
-    });
-  }
-
-  function buildProjectedGeometryFromLayer(layer) {
-    if (!layer) return { polygons: [], bounds: null };
-    var latlngs = layer.getLatLngs();
-    if (!latlngs || !latlngs.length) return { polygons: [], bounds: null };
-
-    function isPoint(v) {
-      return v && typeof v.lat === 'number' && typeof v.lng === 'number';
-    }
-
-    function ringToPoints(ring, bounds) {
-      return ring.map(function (latlng) {
-        var pt = map.latLngToLayerPoint(latlng);
-        bounds.minX = Math.min(bounds.minX, pt.x);
-        bounds.minY = Math.min(bounds.minY, pt.y);
-        bounds.maxX = Math.max(bounds.maxX, pt.x);
-        bounds.maxY = Math.max(bounds.maxY, pt.y);
-        return { x: pt.x, y: pt.y };
-      });
-    }
-
-    function parse(input, out, bounds) {
-      if (!Array.isArray(input) || !input.length) return;
-      if (isPoint(input[0])) {
-        out.push([ringToPoints(input, bounds)]);
-        return;
-      }
-      if (Array.isArray(input[0]) && input[0].length && isPoint(input[0][0])) {
-        var polygon = [];
-        for (var i = 0; i < input.length; i += 1) {
-          polygon.push(ringToPoints(input[i], bounds));
-        }
-        out.push(polygon);
-        return;
-      }
-      for (var j = 0; j < input.length; j += 1) {
-        parse(input[j], out, bounds);
-      }
-    }
-
-    var bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-    var polygons = [];
-    parse(latlngs, polygons, bounds);
-
-    if (!isFinite(bounds.minX)) return { polygons: [], bounds: null };
-    return { polygons: polygons, bounds: bounds };
-  }
-
-  function mergeProjectedGeometries(geometries) {
-    var polygons = [];
-    var bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-
-    geometries.forEach(function (geom) {
-      if (!geom || !geom.polygons || !geom.polygons.length || !geom.bounds) return;
-      polygons = polygons.concat(geom.polygons);
-      bounds.minX = Math.min(bounds.minX, geom.bounds.minX);
-      bounds.minY = Math.min(bounds.minY, geom.bounds.minY);
-      bounds.maxX = Math.max(bounds.maxX, geom.bounds.maxX);
-      bounds.maxY = Math.max(bounds.maxY, geom.bounds.maxY);
-    });
-
-    if (!isFinite(bounds.minX)) return null;
-    return { polygons: polygons, bounds: bounds };
-  }
-
-  function drawGeometryPath(ctx, geometry, offsetX, offsetY) {
-    ctx.beginPath();
-    geometry.polygons.forEach(function (polygon) {
-      polygon.forEach(function (ring) {
-        ring.forEach(function (pt, index) {
-          var x = pt.x - offsetX;
-          var y = pt.y - offsetY;
-          if (index === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-      });
-    });
-  }
-
-  function createLandTexture(ctx, width, height) {
-    var grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, '#d4b483');
-    grad.addColorStop(0.5, '#c19a63');
-    grad.addColorStop(1, '#9a7548');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
-
-    for (var i = 0; i < 18000; i += 1) {
-      var x = Math.random() * width;
-      var y = Math.random() * height;
-      var a = 0.04 + Math.random() * 0.05;
-      var r = 0.5 + Math.random() * 1.2;
-      ctx.fillStyle = 'rgba(60,35,15,' + a + ')';
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  async function exportSelectedPng(exportMode) {
-    if (!selectedLayer || !selectedFeature) {
-      setStatus('Select a country first');
-      return;
-    }
-
-    var geometries = [buildProjectedGeometryFromLayer(selectedLayer)];
-    if (selectedFeature && getIso2(selectedFeature) === 'in' && indiaClaimOverlay) {
-      geometries.push(buildProjectedGeometryFromLayer(indiaClaimOverlay));
-    }
-
-    var geometry = mergeProjectedGeometries(geometries);
-    if (!geometry) {
-      setStatus('Export failed');
-      return;
-    }
-
-    var padding = 40;
-    var bounds = geometry.bounds;
-    var width = Math.max(1, bounds.maxX - bounds.minX);
-    var height = Math.max(1, bounds.maxY - bounds.minY);
-    var exportWidth = width + padding * 2;
-    var exportHeight = height + padding * 2;
-    var maxSide = 2500;
-    var scale = Math.min(maxSide / exportWidth, maxSide / exportHeight, 2.2);
-
-    var canvas = document.createElement('canvas');
-    canvas.width = Math.max(2, Math.round(exportWidth * scale));
-    canvas.height = Math.max(2, Math.round(exportHeight * scale));
-    var ctx = canvas.getContext('2d');
-
-    ctx.scale(scale, scale);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    var offsetX = bounds.minX - padding;
-    var offsetY = bounds.minY - padding;
-
-    drawGeometryPath(ctx, geometry, offsetX, offsetY);
-    ctx.save();
-    ctx.clip('evenodd');
-
-    if (exportMode === 'solid') {
-      ctx.fillStyle = borderColorInput.value;
-      ctx.fillRect(0, 0, exportWidth, exportHeight);
-    } else if (exportMode === 'land') {
-      createLandTexture(ctx, exportWidth, exportHeight);
-    } else if (exportMode === 'flag') {
-      var flagUrl = getFlagPngUrl(selectedFeature);
-      if (!flagUrl) {
-        ctx.fillStyle = borderColorInput.value;
-        ctx.fillRect(0, 0, exportWidth, exportHeight);
-      } else {
-        try {
-          var flagImg = await loadImage(flagUrl);
-          ctx.drawImage(flagImg, 0, 0, exportWidth, exportHeight);
-        } catch (e) {
-          ctx.fillStyle = borderColorInput.value;
-          ctx.fillRect(0, 0, exportWidth, exportHeight);
-        }
-      }
-    }
-
-    ctx.restore();
-
-    ctx.save();
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = borderColorInput.value;
-    ctx.lineWidth = Number(borderSizeInput.value);
-    drawGeometryPath(ctx, geometry, offsetX, offsetY);
-    ctx.stroke();
-    ctx.restore();
-
-    var pngUrl = canvas.toDataURL('image/png');
-    var suffix = exportMode === 'flag' ? '_flag_transparent.png' :
-                 exportMode === 'land' ? '_land_transparent.png' :
-                 '_solid_transparent.png';
-
-    var filename = getFeatureName(selectedFeature).replace(/[^a-z0-9]+/gi, '_').toLowerCase() + suffix;
-    openPreview(pngUrl, filename, 'png');
-    setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
-    setStatus('PNG ready');
-  }
-
-  function applyHighlightOnExternalMap(targetMap, layer, feature, defsRoot, options) {
-    var color = options.color;
-    var size = options.size;
-    var opacity = options.opacity;
-    var fillMode = options.fillMode;
-    var offset = options.offset || { x: 0, y: 0 };
-
-    layer.setStyle({
-      color: color,
-      weight: size,
-      fillColor: color,
-      fillOpacity: fillMode === 'solid' ? opacity : 0,
-      opacity: 1
-    });
-
-    if (fillMode === 'solid') return;
-
-    setTimeout(function () {
-      if (!layer._path) return;
-      var bbox = layer._path.getBBox();
-      if (!bbox || !bbox.width || !bbox.height) return;
-
-      var clipId = 'export-clip-' + Math.random().toString(36).slice(2);
-      var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-      clipPath.setAttribute('id', clipId);
-
-      var clone = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      clone.setAttribute('d', layer._path.getAttribute('d'));
-      clipPath.appendChild(clone);
-      defsRoot.appendChild(clipPath);
-
-      var img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-      var flagUrl = getFlagSvgUrl(feature);
-      if (!flagUrl) return;
-      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', flagUrl);
-      img.setAttribute('href', flagUrl);
-      img.setAttribute('x', String(bbox.x + offset.x));
-      img.setAttribute('y', String(bbox.y + offset.y));
-      img.setAttribute('width', String(bbox.width));
-      img.setAttribute('height', String(bbox.height));
-      img.setAttribute('preserveAspectRatio', 'none');
-      img.setAttribute('clip-path', 'url(#' + clipId + ')');
-      img.setAttribute('opacity', String(opacity));
-      img.style.pointerEvents = 'none';
-      layer._path.parentNode.insertBefore(img, layer._path);
-      layer._path.style.fill = 'transparent';
-      layer._path.style.fillOpacity = '0';
-    }, 0);
-  }
-
-  function waitForTileLayer(layer, timeout) {
-    return new Promise(function (resolve) {
-      var done = false;
-      function finish() {
-        if (done) return;
-        done = true;
-        try { layer.off('load', finish); } catch (e) {}
-        resolve();
-      }
-      layer.on('load', finish);
-      setTimeout(finish, timeout || 3500);
-    });
-  }
-
-  async function exportPortrait4kScreenshot() {
-    var stage = document.createElement('div');
-    stage.className = 'hidden-export-stage';
-
-    var exportMapEl = document.createElement('div');
-    exportMapEl.className = 'hidden-export-map';
-    stage.appendChild(exportMapEl);
-    document.body.appendChild(stage);
-
-    setStatus('Preparing true-detail 9:16 export...');
-
-    try {
-      var exportMap = L.map(exportMapEl, {
-        zoomControl: false,
-        attributionControl: false,
-        preferCanvas: false,
-        renderer: L.svg(),
-        zoomSnap: 0.25
-      });
-
-      var activeType = basemapSelect.value;
-      var exportBaseLayer = null;
-
-      if (activeType === 'indiaOutline') {
-        exportMapEl.style.background = '#000';
-        L.imageOverlay('india-political-map.png', L.latLngBounds([[4.0, 66.0], [39.8, 100.0]]), {
-          opacity: 1,
-          interactive: false,
-          crossOrigin: 'anonymous'
-        }).addTo(exportMap);
-      } else {
-        exportBaseLayer = activeType === 'dark'
-          ? L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-              subdomains: 'abcd',
-              maxZoom: 19,
-              crossOrigin: true
-            })
-          : L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-              maxZoom: 19,
-              crossOrigin: true
-            });
-
-        exportBaseLayer.addTo(exportMap);
-      }
-
-      var center = map.getCenter();
-      var zoom = map.getZoom();
-
-      exportMap.setView(center, Math.min(zoom + 1, 8), { animate: false });
-
-      if (selectedLayer) {
-        var b = selectedLayer.getBounds();
-        exportMap.fitBounds(b, { padding: [180, 300], animate: false });
-      }
-
-      var selectedCopyLayer = null;
-      if (selectedFeature) {
-        selectedCopyLayer = L.geoJSON(selectedFeature, {
-          renderer: L.svg(),
-          style: {
-            color: borderColorInput.value,
-            weight: Number(borderSizeInput.value),
-            fillColor: borderColorInput.value,
-            fillOpacity: fillModeSelect.value === 'solid' ? Number(fadeSliderInput.value) : 0,
-            opacity: 1
-          }
-        }).addTo(exportMap);
-      }
-
-      exportMap.invalidateSize();
-
-      if (exportBaseLayer) {
-        await waitForTileLayer(exportBaseLayer, 4500);
-      } else {
-        await new Promise(function (r) { setTimeout(r, 800); });
-      }
-
-      if (selectedCopyLayer && fillModeSelect.value !== 'solid') {
-        var svg = exportMap.getPanes().overlayPane.querySelector('svg');
-        var defs = svg.querySelector('defs');
-        if (!defs) {
-          defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-          svg.insertBefore(defs, svg.firstChild);
-        }
-
-        selectedCopyLayer.eachLayer(function (layer) {
-          applyHighlightOnExternalMap(exportMap, layer, selectedFeature, defs, {
-            color: borderColorInput.value,
-            size: Number(borderSizeInput.value),
-            opacity: Number(fadeSliderInput.value),
-            fillMode: fillModeSelect.value,
-            offset: getFillOffset(selectedFeature)
-          });
-        });
-      }
-
-      await new Promise(function (r) { setTimeout(r, 1200); });
-
-      var sourceCanvas = await html2canvas(exportMapEl, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#000000',
-        logging: false,
-        scale: 2,
-        imageTimeout: 20000
-      });
-
-      var targetCanvas = document.createElement('canvas');
-      targetCanvas.width = 2160;
-      targetCanvas.height = 3840;
-      var ctx = targetCanvas.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
-      ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
-
-      var pngUrl = targetCanvas.toDataURL('image/png');
-      var filename = 'map_9x16_true_detail_4k.png';
-      openPreview(pngUrl, filename, 'png');
-      setTimeout(function () { triggerDownload(pngUrl, filename); }, 50);
-      setStatus('9:16 4K export ready');
-      exportMap.remove();
-      stage.remove();
-    } catch (error) {
-      console.error(error);
-      stage.remove();
-      setStatus('9:16 export failed');
-    }
-  }
-
-  function recordMode() {
-    app.classList.add('recording');
-  }
-
-  function getVisualCenter(layer) {
-    var latlngs = layer.getLatLngs();
-    if (!latlngs || !latlngs.length) return layer.getBounds().getCenter();
-    var points = [];
-    (function flatten(input) {
-      for (var i = 0; i < input.length; i += 1) {
-        if (Array.isArray(input[i])) flatten(input[i]);
-        else if (input[i] && typeof input[i].lat === 'number' && typeof input[i].lng === 'number') points.push(input[i]);
-      }
-    }(latlngs));
-    if (!points.length) return layer.getBounds().getCenter();
-    var sumLat = 0, sumLng = 0;
-    for (var j = 0; j < points.length; j += 1) {
-      sumLat += points[j].lat;
-      sumLng += points[j].lng;
-    }
-    return L.latLng(sumLat / points.length, sumLng / points.length);
-  }
-
-  function makeHandle(latlng, className) {
-    return L.marker(latlng, {
-      draggable: true,
-      icon: L.divIcon({ className: className, html: '', iconSize: [14, 14], iconAnchor: [7, 7] })
-    }).addTo(map);
-  }
-
-  function createArrowDecorator(start, end) {
-    var p1 = map.latLngToContainerPoint(start);
-    var p2 = map.latLngToContainerPoint(end);
-    var dx = p2.x - p1.x;
-    var dy = p2.y - p1.y;
-    var len = Math.sqrt(dx * dx + dy * dy) || 1;
-    var ux = dx / len;
-    var uy = dy / len;
-    var base = L.point(p2.x - ux * 20, p2.y - uy * 20);
-    var left = L.point(base.x - uy * 10, base.y + ux * 10);
-    var right = L.point(base.x + uy * 10, base.y - ux * 10);
-    return [map.containerPointToLatLng(left), end, map.containerPointToLatLng(right)];
-  }
-
-  function arcPoints(start, end, lift) {
-    var p1 = map.latLngToContainerPoint(start);
-    var p2 = map.latLngToContainerPoint(end);
-    var mid = L.point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2 - lift);
-    var pts = [];
-    for (var t = 0; t <= 1.001; t += 0.04) {
-      var x = (1 - t) * (1 - t) * p1.x + 2 * (1 - t) * t * mid.x + t * t * p2.x;
-      var y = (1 - t) * (1 - t) * p1.y + 2 * (1 - t) * t * mid.y + t * t * p2.y;
-      pts.push(map.containerPointToLatLng(L.point(x, y)));
-    }
-    return pts;
-  }
-
-  function addPathLabel(latlng, text, className) {
-    var marker = L.marker(latlng, {
-      interactive: false,
-      icon: L.divIcon({ className: className || 'path-label', html: text, iconSize: [0, 0], iconAnchor: [0, 0] })
-    }).addTo(map);
-    pathLabels.push(marker);
-    return marker;
-  }
-
-  function addWarArrow() {
-    if (!selectedLayer) { setStatus('Select a country first, then add war arrow'); return; }
-    var start = getVisualCenter(selectedLayer);
-    var end = L.latLng(start.lat + 6, start.lng + 10);
-    var mainLine = L.polyline([start, end], { color: '#ef4444', weight: 5, opacity: 0.95 }).addTo(map);
-    var arrowHead = L.polygon(createArrowDecorator(start, end), { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.95, weight: 1 }).addTo(map);
-    var startHandle = makeHandle(start, 'arrow-handle');
-    var endHandle = makeHandle(end, 'arrow-handle');
-    var label = addPathLabel(L.latLng((start.lat + end.lat) / 2, (start.lng + end.lng) / 2), 'WAR ARROW');
-
-    function redraw() {
-      var s = startHandle.getLatLng();
-      var e = endHandle.getLatLng();
-      mainLine.setLatLngs([s, e]);
-      arrowHead.setLatLngs(createArrowDecorator(s, e));
-      label.setLatLng(L.latLng((s.lat + e.lat) / 2, (s.lng + e.lng) / 2));
-    }
-
-    startHandle.on('drag', redraw);
-    endHandle.on('drag', redraw);
-
-    pathLayers.push(mainLine, arrowHead);
-    pathHandles.push(startHandle, endHandle);
-    setStatus('War arrow added. Drag endpoints to adjust');
-  }
-
-  function addMissilePath() {
-    if (!selectedLayer) { setStatus('Select a country first, then add missile path'); return; }
-    var start = getVisualCenter(selectedLayer);
-    var end = L.latLng(start.lat + 8, start.lng + 14);
-    var trail = L.polyline(arcPoints(start, end, 90), { color: '#f59e0b', weight: 4, opacity: 0.95, dashArray: '10 8' }).addTo(map);
-    var arc = arcPoints(start, end, 90);
-    var arrowHead = L.polygon(createArrowDecorator(arc[arc.length - 2], end), { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.95, weight: 1 }).addTo(map);
-    var startHandle = makeHandle(start, 'missile-handle');
-    var endHandle = makeHandle(end, 'missile-handle');
-    var label = addPathLabel(L.latLng((start.lat + end.lat) / 2 + 1, (start.lng + end.lng) / 2), 'MISSILE');
-
-    function redraw() {
-      var s = startHandle.getLatLng();
-      var e = endHandle.getLatLng();
-      var pts = arcPoints(s, e, 90);
-      trail.setLatLngs(pts);
-      arrowHead.setLatLngs(createArrowDecorator(pts[pts.length - 2], e));
-      label.setLatLng(L.latLng((s.lat + e.lat) / 2 + 1, (s.lng + e.lng) / 2));
-    }
-
-    startHandle.on('drag', redraw);
-    endHandle.on('drag', redraw);
-
-    pathLayers.push(trail, arrowHead);
-    pathHandles.push(startHandle, endHandle);
-    setStatus('Missile path added. Drag endpoints to adjust');
-  }
-
-  function findCountryLayer(query) {
-    if (!geoLayer || !query) return null;
-    var normalized = String(query).trim().toLowerCase();
-    if (!normalized) return null;
-    var found = null;
-    geoLayer.eachLayer(function (layer) {
-      if (found) return;
-      var name = getFeatureName(layer.feature).toLowerCase();
-      if (name.includes(normalized)) found = layer;
-    });
-    return found;
-  }
-
-  function runCountrySearch(query) {
-    var normalized = String(query || '').trim().toLowerCase();
-    if (!normalized) return;
-
-    if (basemapSelect.value === 'indiaOutline' && (normalized === 'india' || normalized === 'bharat')) {
-      map.setView([22.8, 81.2], 4.6, { animate: true });
-      setStatus('India outline focused');
-      return;
-    }
-
-    var layer = findCountryLayer(query);
-    if (layer) selectCountry(layer.feature, layer);
-    else setStatus('Country not found');
-  }
-
-  function canStartFillDrag() {
-    return !!(dragFillToggle.checked && selectedLayer && selectedFeature && fillModeSelect.value !== 'solid');
-  }
-
-  function startFillDrag(point) {
-    if (!canStartFillDrag()) return;
-    isDraggingFill = true;
-    pointerStart = point;
-    map.dragging.disable();
-    setStatus('Dragging flag fill...');
-  }
-
-  function moveFillDrag(point) {
-    if (!isDraggingFill || !selectedFeature || !pointerStart) return;
-    var dx = point.x - pointerStart.x;
-    var dy = point.y - pointerStart.y;
-    pointerStart = point;
-    var offset = getFillOffset(selectedFeature);
-    offset.x += dx;
-    offset.y += dy;
-    applyHighlight(selectedLayer, selectedFeature);
-  }
-
-  function endFillDrag() {
-    if (!isDraggingFill) return;
-    isDraggingFill = false;
-    pointerStart = null;
-    map.dragging.enable();
-    setStatus('Flag fill adjusted');
-  }
-
-  function clearTouchHoldTimer() {
-    if (touchHoldTimer) {
-      clearTimeout(touchHoldTimer);
-      touchHoldTimer = null;
-    }
-  }
-
-  previewCloseBtn.addEventListener('click', closePreviewModal);
-  previewDownloadBtn.addEventListener('click', function () {
-    if (!currentPreviewUrl || !currentPreviewFilename) {
-      setStatus('Nothing to download');
-      return;
-    }
-    triggerBlobDownloadFromUrl(currentPreviewUrl, currentPreviewFilename);
-  });
-  previewModal.addEventListener('click', function (e) {
-    if (e.target === previewModal) closePreviewModal();
-  });
-
-  fab.addEventListener('click', toggleTools);
-  basemapSelect.addEventListener('change', function () { useBasemap(this.value); });
-  recordBtn.addEventListener('click', recordMode);
-  showUiBtn.addEventListener('click', showUI);
-  warArrowBtn.addEventListener('click', addWarArrow);
-  missileBtn.addEventListener('click', addMissilePath);
-  clearPathsBtn.addEventListener('click', clearPaths);
-  exportNoFlagBtn.addEventListener('click', function () { exportSelectedPng('solid'); });
-  exportWithFlagBtn.addEventListener('click', function () { exportSelectedPng('flag'); });
-  exportLandBtn.addEventListener('click', function () { exportSelectedPng('land'); });
-  exportPortrait4kBtn.addEventListener('click', exportPortrait4kScreenshot);
-  clearSelectionBtn.addEventListener('click', clearSelection);
-  resetBtn.addEventListener('click', resetMap);
-
-  quickSearchInput.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    runCountrySearch(this.value);
-  });
-
-  quickSearchBtn.addEventListener('click', function () {
-    runCountrySearch(quickSearchInput.value);
-  });
-
-  ['fillModeSelect', 'borderColor', 'borderSize', 'fadeSlider', 'labelToggle', 'flagToggle', 'dragFillToggle', 'flagSize'].forEach(function (id) {
-    var eventName = (id === 'borderColor' || id === 'borderSize' || id === 'fadeSlider' || id === 'flagSize') ? 'input' : 'change';
-    document.getElementById(id).addEventListener(eventName, function () {
-      updateFlagSizeLabel();
-      if (selectedLayer && selectedFeature) applyHighlight(selectedLayer, selectedFeature);
-    });
-  });
-
-  map.on('mousedown', function (e) {
-    if (!canStartFillDrag()) return;
-    startFillDrag(e.containerPoint);
-  });
-
-  map.on('mousemove', function (e) {
-    if (!isDraggingFill) return;
-    moveFillDrag(e.containerPoint);
-  });
-
-  map.on('mouseup', endFillDrag);
-  map.on('mouseout', endFillDrag);
-
-  map.getContainer().addEventListener('touchstart', function (evt) {
-    if (!canStartFillDrag()) return;
-    if (!evt.touches || !evt.touches.length) return;
-    var rect = map.getContainer().getBoundingClientRect();
-    var t = evt.touches[0];
-    var pt = L.point(t.clientX - rect.left, t.clientY - rect.top);
-    pointerStart = pt;
-    clearTouchHoldTimer();
-    touchHoldTimer = setTimeout(function () {
-      startFillDrag(pt);
-    }, 220);
-  }, { passive: true });
-
-  map.getContainer().addEventListener('touchmove', function (evt) {
-    if (!evt.touches || !evt.touches.length) return;
-    var rect = map.getContainer().getBoundingClientRect();
-    var t = evt.touches[0];
-    var pt = L.point(t.clientX - rect.left, t.clientY - rect.top);
-
-    if (!isDraggingFill) {
-      if (pointerStart) {
-        var dx = pt.x - pointerStart.x;
-        var dy = pt.y - pointerStart.y;
-        if (Math.sqrt(dx * dx + dy * dy) > 12) clearTouchHoldTimer();
-      }
-      return;
-    }
-
-    evt.preventDefault();
-    moveFillDrag(pt);
-  }, { passive: false });
-
-  map.getContainer().addEventListener('touchend', function () {
-    clearTouchHoldTimer();
-    endFillDrag();
-  }, { passive: true });
-
-  map.getContainer().addEventListener('touchcancel', function () {
-    clearTouchHoldTimer();
-    endFillDrag();
-  }, { passive: true });
-
-  map.on('zoomend moveend', function () {
-    if (selectedLayer && selectedFeature && fillModeSelect.value !== 'solid') {
-      applyHighlight(selectedLayer, selectedFeature);
-    }
-  });
-
-  satelliteLayer.on('tileerror', function () {
-    if (basemapSelect.value === 'satellite') {
-      basemapSelect.value = 'dark';
-      useBasemap('dark');
-      setStatus('Satellite failed. Switched to dark fallback map');
-    }
-  });
-
-  function loadCountryBoundaries() {
-    var sources = [
-      'https://cdn.jsdelivr.net/gh/datasets/geo-countries@master/data/countries.geojson',
-      'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
-    ];
-
-    function renderGeo(data) {
-      geoJsonData = data;
-      if (geoLayer) map.removeLayer(geoLayer);
-
-      geoLayer = L.geoJSON(data, {
-        renderer: L.svg(),
-        style: {
-          color: '#ffffff',
-          weight: 0.7,
-          fillOpacity: 0,
-          fillColor: '#ffffff',
-          opacity: 1
-        },
-        onEachFeature: function (feature, layer) {
-          layer.on('click', function () { selectCountry(feature, layer); });
-        }
-      }).addTo(map);
-
-      setStatus('All countries loaded');
-    }
-
-    function tryLoad(index) {
-      if (index >= sources.length) {
-        setStatus('Country boundaries failed to load');
-        return;
-      }
-
-      fetch(sources[index])
-        .then(function (r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
-        })
-        .then(renderGeo)
-        .catch(function () { tryLoad(index + 1); });
-    }
-
-    tryLoad(0);
-  }
-
-  updateFlagSizeLabel();
-  loadCountryBoundaries();
-  useBasemap('satellite');
-}());
-</script>
-</body>
-</html>
+  );
+}
